@@ -24,7 +24,7 @@ async def list_passages(
         docs = []
     return [
         PassageOut(
-            id=str(i),
+            id=d.metadata.get("id", str(i)),
             content=d.page_content,
             tradition=d.metadata.get("tradition"),
             author=d.metadata.get("author"),

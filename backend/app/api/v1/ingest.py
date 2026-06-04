@@ -19,10 +19,11 @@ def _get_pipeline():
 
 
 async def _run_ingestion_task(
-    file_content: bytes,
+    file_content: bytes | None,
     filename: str,
     metadata: dict,
     job_id: uuid.UUID,
+    source_url: str | None = None,
 ):
     from app.config import settings
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -32,8 +33,16 @@ async def _run_ingestion_task(
         pipeline = _get_pipeline()
         async with session_factory() as session:
             try:
+                if source_url:
+                    import httpx
+                    async with httpx.AsyncClient() as http_client:
+                        resp = await http_client.get(source_url, timeout=30)
+                        resp.raise_for_status()
+                        actual_content = resp.text.encode()
+                else:
+                    actual_content = file_content
                 result = await pipeline.run(
-                    file=io.BytesIO(file_content),
+                    file=io.BytesIO(actual_content),
                     filename=filename,
                     metadata=metadata,
                 )
@@ -120,25 +129,17 @@ async def ingest_url(
     era: str = Form(default="unknown"),
     db: AsyncSession = Depends(get_db),
 ):
-    import httpx
-    try:
-        async with httpx.AsyncClient() as http_client:
-            resp = await http_client.get(url, timeout=15)
-            resp.raise_for_status()
-            text_content = resp.text
-    except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Failed to fetch URL: {e}")
-
     job = IngestJob(filename=url, tradition=tradition)
     db.add(job)
     await db.flush()
     await db.commit()
     background_tasks.add_task(
         _run_ingestion_task,
-        text_content.encode(),
+        None,
         url,
         {"tradition": tradition, "author": author, "source": source, "era": era},
         job.id,
+        url,
     )
     return IngestJobResponse(job_id=job.id, status="processing", filename=url)
 

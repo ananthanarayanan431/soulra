@@ -28,9 +28,18 @@ app.include_router(passages_router, prefix="/api/v1")
 app.include_router(conversations_router, prefix="/api/v1")
 
 
+_STATUS_MAP = {
+    "NOT_FOUND": 404,
+    "INGESTION_FAILED": 500,
+    "RETRIEVAL_FAILED": 500,
+    "INTERNAL_ERROR": 500,
+}
+
+
 @app.exception_handler(SoulraException)
 async def soulra_exception_handler(_request: Request, exc: SoulraException):
+    status_code = _STATUS_MAP.get(exc.code, 500)
     return JSONResponse(
-        status_code=500,
+        status_code=status_code,
         content={"type": exc.code, "message": exc.message},
     )
