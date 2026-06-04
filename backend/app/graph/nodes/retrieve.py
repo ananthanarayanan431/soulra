@@ -4,7 +4,7 @@ from app.graph.state import SoulraState
 from app.services.retrieval.retriever import WisdomRetriever
 
 
-def create_retrieve_node(retriever: WisdomRetriever):
+def create_retrieve_node(retriever: WisdomRetriever, output_key: str = "retrieved_docs"):
     async def retrieve(state: SoulraState) -> dict:
         query = state["query"]
         hints = state["tradition_hints"] or [None]
@@ -18,6 +18,6 @@ def create_retrieve_node(retriever: WisdomRetriever):
                     all_docs.append(doc)
                     seen_contents.add(doc.page_content)
 
-        return {"retrieved_docs": all_docs}
+        return {output_key: all_docs}
 
     return retrieve

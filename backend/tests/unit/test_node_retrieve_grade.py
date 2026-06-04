@@ -51,6 +51,18 @@ async def test_retrieve_node_deduplicates_documents(mock_vectorstore):
     assert len(result["retrieved_docs"]) == 1  # deduplicated
 
 
+@pytest.mark.asyncio
+async def test_retrieve_refined_writes_to_refined_docs_key(mock_vectorstore):
+    """retrieve_refined must write to refined_docs, not retrieved_docs."""
+    from app.graph.nodes.retrieve import create_retrieve_node
+    from app.services.retrieval.retriever import WisdomRetriever
+    retriever = WisdomRetriever(mock_vectorstore)
+    retrieve_refined = create_retrieve_node(retriever, output_key="refined_docs")
+    result = await retrieve_refined(_make_state())
+    assert "refined_docs" in result
+    assert "retrieved_docs" not in result
+
+
 def test_grade_node_returns_relevant_when_majority_score_yes():
     from app.graph.nodes.grade import create_grade_node, GradeOutput
     mock_llm = MagicMock()
