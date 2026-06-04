@@ -6,6 +6,7 @@ from app.config import settings
 from app.core.exceptions import SoulraException
 from app.core.middleware import RequestIDMiddleware, TimingMiddleware
 from app.api.v1.health import router as health_router
+from app.api.v1.ingest import router as ingest_router
 
 app = FastAPI(title="Soulra Backend", version="0.1.0")
 
@@ -20,10 +21,11 @@ app.add_middleware(TimingMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
 app.include_router(health_router, prefix="/api/v1")
+app.include_router(ingest_router, prefix="/api/v1")
 
 
 @app.exception_handler(SoulraException)
-async def soulra_exception_handler(request: Request, exc: SoulraException):
+async def soulra_exception_handler(_request: Request, exc: SoulraException):
     return JSONResponse(
         status_code=500,
         content={"type": exc.code, "message": exc.message},
