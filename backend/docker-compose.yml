@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: soulra
       POSTGRES_PASSWORD: soulra
     ports:
-      - "5432:5432"
+      - "5436:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
