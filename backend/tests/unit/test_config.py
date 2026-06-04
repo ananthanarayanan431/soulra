@@ -20,3 +20,4 @@ def test_settings_defaults():
     assert s.fast_model == "anthropic/claude-sonnet-4-6"
     assert s.embedding_model == "openai/text-embedding-3-small"
     assert s.max_upload_mb == 50
+    assert s.allowed_origins == ["http://localhost:3000"]
