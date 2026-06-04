@@ -1,15 +1,13 @@
 import pytest
 import io
-import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
 async def test_pipeline_run_returns_chunk_count(mock_vectorstore):
     from app.services.ingestion.pipeline import IngestionPipeline
 
-    mock_embeddings = MagicMock()
-    pipeline = IngestionPipeline(vectorstore=mock_vectorstore, embeddings=mock_embeddings)
+    pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
     mock_vectorstore.aadd_documents = AsyncMock(return_value=["id1", "id2"])
 
     with patch("app.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse, \
@@ -37,7 +35,7 @@ async def test_pipeline_run_raises_ingestion_error_on_failure(mock_vectorstore):
     from app.core.exceptions import IngestionError
 
     mock_vectorstore.aadd_documents = AsyncMock(side_effect=Exception("DB error"))
-    pipeline = IngestionPipeline(vectorstore=mock_vectorstore, embeddings=MagicMock())
+    pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
 
     with patch("app.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse, \
          patch("app.services.ingestion.pipeline.chunk_documents") as mock_chunk:
@@ -47,3 +45,20 @@ async def test_pipeline_run_raises_ingestion_error_on_failure(mock_vectorstore):
 
         with pytest.raises(IngestionError):
             await pipeline.run(file=io.BytesIO(b"pdf"), filename="f.pdf", metadata={})
+
+
+@pytest.mark.asyncio
+async def test_pipeline_propagates_ingestion_error_unwrapped(mock_vectorstore):
+    """IngestionError raised inside run() must propagate as-is, not re-wrapped."""
+    from app.services.ingestion.pipeline import IngestionPipeline
+    from app.core.exceptions import IngestionError
+
+    pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
+    original = IngestionError("no text found")
+
+    with patch("app.services.ingestion.pipeline.extract_text_from_pdf",
+               side_effect=original):
+        with pytest.raises(IngestionError) as exc_info:
+            await pipeline.run(file=io.BytesIO(b"pdf"), filename="empty.pdf", metadata={})
+
+    assert exc_info.value is original  # same object, not a new wrapper

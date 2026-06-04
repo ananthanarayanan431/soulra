@@ -1,6 +1,5 @@
 from typing import IO
 from langchain_postgres import PGVector
-from langchain_openai import OpenAIEmbeddings
 from app.services.ingestion.pdf_parser import extract_text_from_pdf
 from app.services.ingestion.chunker import chunk_documents
 from app.core.exceptions import IngestionError
@@ -8,9 +7,8 @@ from app.core.logging import logger
 
 
 class IngestionPipeline:
-    def __init__(self, vectorstore: PGVector, embeddings: OpenAIEmbeddings):
+    def __init__(self, vectorstore: PGVector):
         self.vectorstore = vectorstore
-        self.embeddings = embeddings
 
     async def run(
         self,
