@@ -6,8 +6,12 @@ def test_settings_requires_database_url(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     from app.config import Settings
+    from pydantic_settings import SettingsConfigDict
+    # Override env_file to None so a local .env doesn't satisfy required fields
+    class SettingsNoFile(Settings):
+        model_config = SettingsConfigDict(env_file=None)
     with pytest.raises((ValidationError, Exception)):
-        Settings()
+        SettingsNoFile()
 
 
 def test_settings_defaults():
