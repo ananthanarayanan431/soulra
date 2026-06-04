@@ -30,12 +30,17 @@ async def test_db(test_engine):
     session_factory = async_sessionmaker(test_engine, expire_on_commit=False)
     async with session_factory() as session:
         yield session
+        await session.rollback()
 
 
 @pytest_asyncio.fixture
 async def client(test_db):
     from app.main import app
-    app.dependency_overrides[get_db] = lambda: test_db
+
+    async def override_get_db():
+        yield test_db
+
+    app.dependency_overrides[get_db] = override_get_db
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
@@ -54,10 +59,12 @@ def mock_fast_llm():
 def mock_smart_llm():
     from langchain_core.messages import AIMessage
     llm = MagicMock()
-    llm.astream = AsyncMock(return_value=iter([
-        MagicMock(content="token1"),
-        MagicMock(content=" token2"),
-    ]))
+
+    async def _astream(*args, **kwargs):
+        for chunk in [MagicMock(content="token1"), MagicMock(content=" token2")]:
+            yield chunk
+
+    llm.astream = _astream
     llm.ainvoke = AsyncMock(return_value=AIMessage(content="mock synthesis"))
     return llm
 
