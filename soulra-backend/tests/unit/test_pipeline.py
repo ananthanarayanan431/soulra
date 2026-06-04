@@ -1,0 +1,78 @@
+import pytest
+import io
+from unittest.mock import AsyncMock, patch
+
+
+@pytest.mark.asyncio
+async def test_pipeline_run_returns_chunk_count(mock_vectorstore):
+    from soulra.services.ingestion.pipeline import IngestionPipeline
+
+    pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
+    mock_vectorstore.aadd_documents = AsyncMock(return_value=["id1", "id2"])
+
+    with patch("soulra.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse, \
+         patch("soulra.services.ingestion.pipeline.chunk_documents") as mock_chunk:
+        from langchain_core.documents import Document
+        mock_parse.return_value = [Document(page_content="text", metadata={})]
+        mock_chunk.return_value = [
+            Document(page_content="chunk1", metadata={"tradition": "stoic"}),
+            Document(page_content="chunk2", metadata={"tradition": "stoic"}),
+        ]
+
+        result = await pipeline.run(
+            file=io.BytesIO(b"pdf"),
+            filename="test.pdf",
+            metadata={"tradition": "stoic", "author": "Marcus", "source": "Meditations", "era": "ancient"},
+        )
+
+    assert result["chunks_created"] == 2
+    mock_vectorstore.aadd_documents.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_run_raises_ingestion_error_on_failure(mock_vectorstore):
+    from soulra.services.ingestion.pipeline import IngestionPipeline
+    from soulra.core.exceptions import IngestionError
+
+    mock_vectorstore.aadd_documents = AsyncMock(side_effect=Exception("DB error"))
+    pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
+
+    with patch("soulra.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse, \
+         patch("soulra.services.ingestion.pipeline.chunk_documents") as mock_chunk:
+        from langchain_core.documents import Document
+        mock_parse.return_value = [Document(page_content="t", metadata={})]
+        mock_chunk.return_value = [Document(page_content="c", metadata={})]
+
+        with pytest.raises(IngestionError):
+            await pipeline.run(file=io.BytesIO(b"pdf"), filename="f.pdf", metadata={})
+
+
+@pytest.mark.asyncio
+async def test_pipeline_run_handles_text_content(mock_vectorstore):
+    from soulra.services.ingestion.pipeline import IngestionPipeline
+    pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
+    mock_vectorstore.aadd_documents = AsyncMock(return_value=[])
+
+    result = await pipeline.run(
+        file=io.BytesIO(b"Stoic wisdom: you own your reactions."),
+        filename="wisdom.txt",
+        metadata={"tradition": "stoic"},
+    )
+    assert result["chunks_created"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_pipeline_propagates_ingestion_error_unwrapped(mock_vectorstore):
+    """IngestionError raised inside run() must propagate as-is, not re-wrapped."""
+    from soulra.services.ingestion.pipeline import IngestionPipeline
+    from soulra.core.exceptions import IngestionError
+
+    pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
+    original = IngestionError("no text found")
+
+    with patch("soulra.services.ingestion.pipeline.extract_text_from_pdf",
+               side_effect=original):
+        with pytest.raises(IngestionError) as exc_info:
+            await pipeline.run(file=io.BytesIO(b"pdf"), filename="empty.pdf", metadata={})
+
+    assert exc_info.value is original  # same object, not a new wrapper
