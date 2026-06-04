@@ -1,0 +1,22 @@
+import pytest
+from pydantic import ValidationError
+
+
+def test_settings_requires_database_url(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    from app.config import Settings
+    with pytest.raises((ValidationError, Exception)):
+        Settings()
+
+
+def test_settings_defaults():
+    import os
+    os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
+    os.environ.setdefault("OPENROUTER_API_KEY", "sk-test")
+    from app.config import Settings
+    s = Settings()
+    assert s.smart_model == "anthropic/claude-opus-4-8"
+    assert s.fast_model == "anthropic/claude-sonnet-4-6"
+    assert s.embedding_model == "openai/text-embedding-3-small"
+    assert s.max_upload_mb == 50
