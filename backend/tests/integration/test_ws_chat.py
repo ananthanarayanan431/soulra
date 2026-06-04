@@ -118,5 +118,8 @@ def test_ws_chat_sends_clarify_and_done():
         tradition_dones = [m for m in messages if m["type"] == "tradition_done"]
         assert len(tradition_dones) == 1
         assert tradition_dones[0]["tradition"] == "Stoic"
+        mock_graph.aupdate_state.assert_called_once()
+        call_args = mock_graph.aupdate_state.call_args
+        assert call_args[0][1]["clarify_answer"] == "Internal"
     finally:
         set_graph(None)
