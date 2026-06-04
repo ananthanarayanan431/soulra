@@ -54,6 +54,7 @@ const STEPS = [
 export function ConversationScreen() {
   const [expanded, setExpanded] = useState(new Set([0]));
   const [committed, setCommitted] = useState(new Set<number>());
+  const [reply, setReply] = useState("");
 
   function toggle(i: number) {
     setExpanded(prev => {
@@ -137,7 +138,12 @@ export function ConversationScreen() {
               {/* tradition cards */}
               {TRADITIONS.map((t, i) =>
                 expanded.has(i) ? (
-                  <div key={i} className="border-[1.5px] border-ink rounded-xl p-5 bg-paper">
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggle(i)}
+                    className="w-full text-left border-[1.5px] border-ink rounded-xl p-5 bg-paper hover:bg-paper-alt transition-colors"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-mono text-[10px] text-accent uppercase tracking-widest">
                         {t.tradition} &middot; {t.author}
@@ -153,7 +159,7 @@ export function ConversationScreen() {
                       <span>{t.citation}</span>
                       <span className="ml-auto text-muted">tap to read original &#8599;</span>
                     </div>
-                  </div>
+                  </button>
                 ) : (
                   <button
                     key={i}
@@ -237,7 +243,11 @@ export function ConversationScreen() {
         {/* input bar */}
         <div className="px-9 pb-6 pt-4 border-t border-line flex-shrink-0">
           <div className="max-w-[820px] mx-auto">
-            <Input placeholder="Reply, or ask a follow-up&hellip;" />
+            <Input
+              placeholder="Reply, or ask a follow-up&hellip;"
+              value={reply}
+              onChange={setReply}
+            />
           </div>
         </div>
       </div>

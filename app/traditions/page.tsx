@@ -1,3 +1,5 @@
+"use client";
+import { useState } from "react";
 import { Sidebar } from "@/components/layout";
 import { Chip } from "@/components/ui";
 
@@ -13,7 +15,28 @@ const TRADITIONS = [
   { name: "Indigenous & earth", origin: "Many lineages",             era: "perennial", sources: 18,  passages: 880,  picked: false },
 ];
 
+const ERAS = ["all", "ancient", "medieval", "perennial"] as const;
+const TOTAL_SOURCES = TRADITIONS.reduce((s, t) => s + t.sources, 0);
+const TOTAL_PASSAGES = TRADITIONS.reduce((s, t) => s + t.passages, 0);
+
 export default function TraditionsPage() {
+  const [selectedEra, setSelectedEra] = useState<string>("all");
+  const [pickedNames, setPickedNames] = useState<Set<string>>(
+    () => new Set(TRADITIONS.filter(t => t.picked).map(t => t.name))
+  );
+
+  function togglePicked(name: string) {
+    setPickedNames(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  }
+
+  const visibleTraditions = selectedEra === "all"
+    ? TRADITIONS
+    : TRADITIONS.filter(t => t.era === selectedEra);
+
   return (
     <div className="flex h-screen bg-paper overflow-hidden">
       <Sidebar />
@@ -39,10 +62,10 @@ export default function TraditionsPage() {
           <div className="border-[1.5px] border-ink rounded-xl p-5 bg-paper-alt mb-7 flex items-start justify-between gap-6">
             <div className="flex-1">
               <div className="font-mono text-[10px] text-muted uppercase tracking-widest mb-3">
-                your selection · {TRADITIONS.filter(t => t.picked).length} of {TRADITIONS.length} voices
+                your selection · {pickedNames.size} of {TRADITIONS.length} voices
               </div>
               <div className="flex flex-wrap gap-2">
-                {TRADITIONS.filter(t => t.picked).map(t => (
+                {TRADITIONS.filter(t => pickedNames.has(t.name)).map(t => (
                   <span
                     key={t.name}
                     className="text-[11px] px-2.5 py-1 rounded-full bg-ink text-paper"
@@ -53,15 +76,15 @@ export default function TraditionsPage() {
               </div>
             </div>
             <div className="font-mono text-[10px] text-muted leading-relaxed text-right flex-shrink-0">
-              412 source texts<br />26,400 passages indexed
+              {TOTAL_SOURCES.toLocaleString()} source texts<br />{TOTAL_PASSAGES.toLocaleString()} passages indexed
             </div>
           </div>
 
           {/* era filters */}
           <div className="flex gap-2 mb-6">
             <span className="font-mono text-[10px] text-muted self-center mr-1">filter:</span>
-            {["all", "ancient", "medieval", "perennial"].map(era => (
-              <Chip key={era} active={era === "all"}>
+            {ERAS.map(era => (
+              <Chip key={era} active={era === selectedEra} onClick={() => setSelectedEra(era)}>
                 {era}
               </Chip>
             ))}
@@ -69,33 +92,38 @@ export default function TraditionsPage() {
 
           {/* tradition cards grid */}
           <div className="grid grid-cols-3 gap-3">
-            {TRADITIONS.map(t => (
-              <div
-                key={t.name}
-                className={`rounded-xl p-5 cursor-pointer transition-all ${
-                  t.picked
-                    ? "border-[1.5px] border-ink bg-ink text-paper shadow-md"
-                    : "border border-line bg-paper hover:border-ink"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className={`font-serif text-[18px] font-medium ${t.picked ? "text-paper" : "text-ink"}`}>
-                      {t.name}
+            {visibleTraditions.map(t => {
+              const isPicked = pickedNames.has(t.name);
+              return (
+                <button
+                  key={t.name}
+                  type="button"
+                  onClick={() => togglePicked(t.name)}
+                  className={`w-full text-left rounded-xl p-5 transition-all ${
+                    isPicked
+                      ? "border-[1.5px] border-ink bg-ink text-paper shadow-md"
+                      : "border border-line bg-paper hover:border-ink"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className={`font-serif text-[18px] font-medium ${isPicked ? "text-paper" : "text-ink"}`}>
+                        {t.name}
+                      </div>
+                      <div className={`font-mono text-[9px] mt-1 tracking-wide ${isPicked ? "text-accent-soft" : "text-muted"}`}>
+                        {t.origin}
+                      </div>
                     </div>
-                    <div className={`font-mono text-[9px] mt-1 tracking-wide ${t.picked ? "text-accent-soft" : "text-muted"}`}>
-                      {t.origin}
-                    </div>
+                    <span className={`font-mono text-[13px] flex-shrink-0 mt-0.5 ${isPicked ? "text-accent-soft" : "text-muted"}`}>
+                      {isPicked ? "✓" : "+"}
+                    </span>
                   </div>
-                  <span className={`font-mono text-[13px] flex-shrink-0 mt-0.5 ${t.picked ? "text-accent-soft" : "text-muted"}`}>
-                    {t.picked ? "✓" : "+"}
-                  </span>
-                </div>
-                <div className={`font-mono text-[10px] mt-3 pt-3 border-t ${t.picked ? "border-[#3a352d] text-accent-soft" : "border-dashed border-line text-muted"}`}>
-                  {t.sources} sources &middot; {t.passages.toLocaleString()} passages
-                </div>
-              </div>
-            ))}
+                  <div className={`font-mono text-[10px] mt-3 pt-3 border-t ${isPicked ? "border-[#3a352d] text-accent-soft" : "border-dashed border-line text-muted"}`}>
+                    {t.sources} sources &middot; {t.passages.toLocaleString()} passages
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

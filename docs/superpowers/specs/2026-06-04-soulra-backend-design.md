@@ -19,7 +19,7 @@ A production-ready Python backend that powers the Soulra chat experience. The ba
 
 ## 2. Architecture overview
 
-```
+```text
 Next.js frontend (TypeScript)
         │
         │  WebSocket  /ws/chat
@@ -63,7 +63,7 @@ FastAPI backend (Python 3.12, async)
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/passages` | List passages. Query params: `tradition`, `author`, `era`, `limit`, `offset`. |
+| `GET` | `/passages` | List passages. Query params: `tradition`, `limit`. |
 | `GET` | `/passages/{id}` | Single passage with full metadata. |
 | `DELETE` | `/passages/{id}` | Remove from vector store. |
 | `GET` | `/collections` | List named pgvector collections and document counts. |
@@ -72,7 +72,7 @@ FastAPI backend (Python 3.12, async)
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/conversations` | List conversations. Query params: `limit`, `offset`. |
+| `GET` | `/conversations` | List conversations. Query params: `limit`. |
 | `GET` | `/conversations/{id}` | Conversation detail including tradition cards and action steps. |
 | `DELETE` | `/conversations/{id}` | Delete conversation and its graph checkpoint. |
 
@@ -81,11 +81,11 @@ FastAPI backend (Python 3.12, async)
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Liveness probe. Returns `{status: "ok"}`. |
-| `GET` | `/status` | Readiness: DB connectivity, passage count, embedding model reachability. |
+| `GET` | `/status` | Readiness: DB connectivity and passage count. Returns `{"database": "ok"|"error", "vector_store": {"passage_count": N}}`. |
 
 ### 3.2 WebSocket — `/ws/chat`
 
-One socket per conversation. Bidirectional JSON messages.
+One socket per conversation. The server generates a UUID `thread_id` on each new connection; clients do not supply one. Bidirectional JSON messages.
 
 **Client → Server**
 
@@ -153,7 +153,7 @@ class SoulraState(TypedDict):
 
 ### Graph topology
 
-```
+```text
 START
   → intake
   → retrieve
@@ -179,7 +179,7 @@ graph = builder.compile(
 
 ## 5. Ingestion pipeline
 
-```
+```text
 POST /ingest/pdf
     FastAPI UploadFile
         ↓ (background task, non-blocking)
@@ -234,8 +234,8 @@ Config values drive every model choice. Swapping provider = changing `.env`.
 
 ## 7. Folder structure
 
-```
-backend/
+```text
+soulra-backend/
 ├── app/
 │   ├── main.py                  # FastAPI app, lifespan, router registration, middleware
 │   ├── config.py                # pydantic-settings: DATABASE_URL, OPENROUTER_API_KEY,
