@@ -8,6 +8,7 @@ from app.core.middleware import RequestIDMiddleware, TimingMiddleware
 from app.api.v1.health import router as health_router
 from app.api.v1.ingest import router as ingest_router
 from app.api.v1.passages import router as passages_router
+from app.api.v1.conversations import router as conversations_router
 
 app = FastAPI(title="Soulra Backend", version="0.1.0")
 
@@ -24,6 +25,7 @@ app.add_middleware(RequestIDMiddleware)
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(ingest_router, prefix="/api/v1")
 app.include_router(passages_router, prefix="/api/v1")
+app.include_router(conversations_router, prefix="/api/v1")
 
 
 @app.exception_handler(SoulraException)
