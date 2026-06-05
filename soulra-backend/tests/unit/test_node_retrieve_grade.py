@@ -96,6 +96,20 @@ async def test_grade_node_returns_not_relevant_when_majority_score_no():
 
 
 @pytest.mark.asyncio
+async def test_grade_node_returns_relevant_for_single_doc_with_yes_score():
+    from soulra.graph.nodes.grade import create_grade_node, GradeOutput
+    from unittest.mock import AsyncMock
+    mock_llm = MagicMock()
+    mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
+    mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
+    grade = create_grade_node(mock_llm)
+
+    docs = [Document(page_content="Stoic wisdom about equanimity.", metadata={})]
+    result = await grade(_make_state(retrieved_docs=docs))
+    assert result["grade_result"] == "relevant"
+
+
+@pytest.mark.asyncio
 async def test_grade_node_returns_not_relevant_for_empty_docs():
     from soulra.graph.nodes.grade import create_grade_node
     mock_llm = MagicMock()
@@ -112,6 +126,52 @@ def test_grade_node_is_async():
     grade = create_grade_node(mock_llm)
     assert asyncio.iscoroutinefunction(grade), \
         "grade node must be async def — sync def blocks the asyncio event loop"
+
+
+@pytest.mark.asyncio
+async def test_retrieve_node_searches_traditions_concurrently():
+    """retrieve node must fire all tradition searches concurrently, not sequentially."""
+    from soulra.graph.nodes.retrieve import create_retrieve_node
+    from soulra.services.retrieval.retriever import WisdomRetriever
+    from unittest.mock import MagicMock
+
+    call_order = []
+
+    async def slow_search(query, tradition_filter=None, k=5):
+        call_order.append(("start", tradition_filter))
+        await asyncio.sleep(0.01)  # small delay to make ordering observable
+        call_order.append(("end", tradition_filter))
+        return [Document(page_content=f"doc-{tradition_filter}", metadata={})]
+
+    mock_vs = MagicMock()
+    mock_retriever = WisdomRetriever(vectorstore=mock_vs)
+    mock_retriever.search = slow_search
+
+    retrieve = create_retrieve_node(mock_retriever)
+    state = {
+        "query": "refusing gracefully",
+        "tradition_hints": ["stoic", "buddhist", "vedanta"],
+        "retrieved_docs": [], "situation": "", "grade_result": "",
+        "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
+        "refined_docs": [], "tradition_cards": [], "action_steps": [],
+        "messages": [], "rewrite_count": 0,
+    }
+
+    result = await retrieve(state)
+
+    # All 3 docs should be returned
+    assert len(result["retrieved_docs"]) == 3
+
+    # Concurrent: all three "start" events should appear before any "end" event
+    starts = [e for e in call_order if e[0] == "start"]
+    ends = [e for e in call_order if e[0] == "end"]
+    # If sequential, we'd see start-end-start-end-start-end
+    # If concurrent, we'd see start-start-start-end-end-end
+    # The first "end" must come after all "start"s
+    first_end_idx = next(i for i, e in enumerate(call_order) if e[0] == "end")
+    starts_before_first_end = sum(1 for e in call_order[:first_end_idx] if e[0] == "start")
+    assert starts_before_first_end == 3, \
+        f"Expected concurrent execution (3 starts before first end), got: {call_order}"
 
 
 @pytest.mark.asyncio

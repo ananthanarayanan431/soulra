@@ -1,4 +1,5 @@
 # app/graph/nodes/retrieve.py
+import asyncio
 from langchain_core.documents import Document
 from soulra.graph.state import SoulraState
 from soulra.services.retrieval.retriever import WisdomRetriever
@@ -8,11 +9,14 @@ def create_retrieve_node(retriever: WisdomRetriever, output_key: str = "retrieve
     async def retrieve(state: SoulraState) -> dict:
         query = state["query"]
         hints = state["tradition_hints"] or [None]
+
+        results = await asyncio.gather(
+            *[retriever.search(query, tradition_filter=hint, k=4) for hint in hints]
+        )
+
         all_docs: list[Document] = []
         seen_contents: set[str] = set()
-
-        for hint in hints:
-            docs = await retriever.search(query, tradition_filter=hint, k=4)
+        for docs in results:
             for doc in docs:
                 if doc.page_content not in seen_contents:
                     all_docs.append(doc)
