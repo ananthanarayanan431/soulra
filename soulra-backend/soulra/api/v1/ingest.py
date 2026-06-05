@@ -1,17 +1,71 @@
-import uuid
+import asyncio
+import hashlib
 import io
+import ipaddress
+import socket
+import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Form, UploadFile, File, BackgroundTasks, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from urllib.parse import urlparse
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from soulra.config import settings
+from soulra.core.logging import logger
 from soulra.database import get_db
 from soulra.models.ingest_job import IngestJob
 from soulra.schemas.ingest import IngestJobResponse
 from soulra.schemas.responses import SuccessResponse
-from soulra.config import settings
-from soulra.core.logging import logger
 
 router = APIRouter(tags=["ingest"])
+
+_PRIVATE_HOSTNAMES = {"localhost", "0.0.0.0"}
+
+
+async def _check_url_not_ssrf(url: str) -> None:
+    """Raise HTTPException(400) if url is not a safe public http/https URL."""
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="Only http/https URLs are allowed")
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid URL: missing host")
+    if hostname in _PRIVATE_HOSTNAMES:
+        raise HTTPException(status_code=400, detail="URL host is not allowed")
+    # If host is a literal IP, check it directly
+    try:
+        ip = ipaddress.ip_address(hostname)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
+            raise HTTPException(status_code=400, detail="URL resolves to a disallowed address")
+        return
+    except ValueError:
+        pass  # not a literal IP — resolve it
+    loop = asyncio.get_event_loop()
+    try:
+        infos = await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
+    except socket.gaierror:
+        raise HTTPException(status_code=400, detail="Invalid URL: cannot resolve host")
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
+                raise HTTPException(status_code=400, detail="URL resolves to a disallowed address")
+        except ValueError:
+            pass
+
+
+async def _update_job_status(session, job_id: uuid.UUID, **fields) -> None:
+    """Update IngestJob fields inside an existing session."""
+    stmt = select(IngestJob).where(IngestJob.id == job_id)
+    row = (await session.execute(stmt)).scalar_one_or_none()
+    if row is not None:
+        for k, v in fields.items():
+            setattr(row, k, v)
+        await session.commit()
 
 
 def _get_pipeline():
@@ -38,7 +92,7 @@ async def _run_ingestion_task(
                     async with httpx.AsyncClient() as http_client:
                         resp = await http_client.get(source_url, timeout=30)
                         resp.raise_for_status()
-                        actual_content = resp.text.encode()
+                        actual_content = resp.content
                 else:
                     actual_content = file_content
                 result = await pipeline.run(
@@ -46,35 +100,31 @@ async def _run_ingestion_task(
                     filename=filename,
                     metadata=metadata,
                 )
-                stmt = select(IngestJob).where(IngestJob.id == job_id)
-                row = (await session.execute(stmt)).scalar_one_or_none()
-                if row is not None:
-                    row.status = "done"
-                    row.chunks_created = result["chunks_created"]
-                    row.completed_at = datetime.now(timezone.utc)
-                    await session.commit()
+                await _update_job_status(
+                    session, job_id,
+                    status="done",
+                    chunks_created=result["chunks_created"],
+                    completed_at=datetime.now(timezone.utc),
+                )
             except Exception as e:
-                stmt = select(IngestJob).where(IngestJob.id == job_id)
-                row = (await session.execute(stmt)).scalar_one_or_none()
-                if row is not None:
-                    row.status = "failed"
-                    row.error = str(e)
-                    await session.commit()
-                logger.error("ingestion_task_failed", job_id=str(job_id), error=str(e))
+                logger.exception("ingestion_task_failed", job_id=str(job_id))
+                await _update_job_status(
+                    session, job_id,
+                    status="failed",
+                    error="Ingestion failed due to an internal error",
+                )
         await eng.dispose()
     except Exception as e:
         logger.error("ingestion_task_setup_failed", job_id=str(job_id), error=str(e))
-        # Best-effort: mark job as failed so callers aren't stuck polling 'processing'
         try:
             _eng = create_async_engine(settings.database_url)
             _sf = async_sessionmaker(_eng, expire_on_commit=False)
             async with _sf() as _session:
-                _stmt = select(IngestJob).where(IngestJob.id == job_id)
-                _row = (await _session.execute(_stmt)).scalar_one_or_none()
-                if _row is not None:
-                    _row.status = "failed"
-                    _row.error = f"Task setup failed: {e}"
-                    await _session.commit()
+                await _update_job_status(
+                    _session, job_id,
+                    status="failed",
+                    error="Task setup failed due to an internal error",
+                )
             await _eng.dispose()
         except Exception as _inner:
             logger.error("ingestion_task_status_update_failed", job_id=str(job_id), error=str(_inner))
@@ -82,6 +132,7 @@ async def _run_ingestion_task(
 
 @router.post("/ingest/pdf", status_code=202, response_model=SuccessResponse[IngestJobResponse])
 async def ingest_pdf(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     tradition: str = Form(...),
@@ -93,8 +144,13 @@ async def ingest_pdf(
     if file.content_type not in ("application/pdf", "application/octet-stream"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
 
-    content = await file.read()
     max_bytes = settings.max_upload_mb * 1024 * 1024
+    # Reject before reading if Content-Length header is already too large
+    cl = request.headers.get("content-length")
+    if cl and int(cl) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"File exceeds {settings.max_upload_mb}MB limit")
+
+    content = await file.read()
     if len(content) > max_bytes:
         raise HTTPException(
             status_code=413, detail=f"File exceeds {settings.max_upload_mb}MB limit"
@@ -124,7 +180,6 @@ async def ingest_text(
     era: str = Form(default="unknown"),
     db: AsyncSession = Depends(get_db),
 ):
-    import hashlib
     filename = f"text-{hashlib.md5(content[:50].encode()).hexdigest()[:8]}.txt"
     job = IngestJob(filename=filename, tradition=tradition)
     db.add(job)
@@ -150,6 +205,7 @@ async def ingest_url(
     era: str = Form(default="unknown"),
     db: AsyncSession = Depends(get_db),
 ):
+    await _check_url_not_ssrf(url)
     job = IngestJob(filename=url, tradition=tradition)
     db.add(job)
     await db.flush()
