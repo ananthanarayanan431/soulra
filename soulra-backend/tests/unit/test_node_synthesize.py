@@ -72,6 +72,83 @@ async def test_synthesize_falls_back_to_retrieved_docs_when_no_refined():
     mock_llm.ainvoke = AsyncMock(return_value=mock_output)
     synthesize = create_synthesize_node(mock_llm)
 
-    # refined_docs is empty — should fall back to retrieved_docs
-    result = await synthesize(_make_state(refined_docs=[]))
+    # refined_docs is None — should fall back to retrieved_docs
+    result = await synthesize(_make_state(refined_docs=None))
     assert len(result["tradition_cards"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_synthesize_uses_refined_docs_not_retrieved_when_refined_is_empty():
+    """When refined_docs is [] (retrieve_refined ran but found nothing), we should NOT
+    fall back to retrieved_docs — that would silently ignore the user's chip selection.
+    Fall back to retrieved_docs only when refined_docs is None (never ran)."""
+    from soulra.graph.nodes.synthesize import create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep
+
+    calls = []
+
+    class MockLLM:
+        def with_structured_output(self, schema):
+            return self
+
+        async def ainvoke(self, prompt):
+            calls.append(prompt)
+            return SynthesizeOutput(
+                tradition_cards=[TraditionCard(tradition="Stoic", author="Marcus", quote="q", citation="c", analysis="a")],
+                action_steps=[ActionStep(n="01", title="t", body="b")],
+            )
+
+    synthesize = create_synthesize_node(MockLLM())
+
+    retrieved_doc = Document(page_content="PRE-CLARIFICATION doc", metadata={"tradition": "stoic"})
+    state = {
+        "situation": "test",
+        "refined_docs": [],   # explicitly empty — retrieve_refined ran but found nothing
+        "retrieved_docs": [retrieved_doc],
+        "clarify_answer": "Something inside me",
+        "tradition_hints": [], "query": "", "grade_result": "",
+        "clarify_question": "", "clarify_chips": [], "tradition_cards": [],
+        "action_steps": [], "messages": [], "rewrite_count": 0,
+    }
+    await synthesize(state)
+
+    # After fix: when refined_docs=[], we should NOT use "PRE-CLARIFICATION doc"
+    assert "PRE-CLARIFICATION" not in calls[0], \
+        "Bug: empty refined_docs fell back to retrieved_docs, ignoring clarification"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_caps_document_content_at_500_chars():
+    """Each document in the prompt should be capped at 500 chars to prevent context overflow."""
+    from soulra.graph.nodes.synthesize import create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep
+
+    captured_prompt = []
+
+    class MockLLM:
+        def with_structured_output(self, schema):
+            return self
+
+        async def ainvoke(self, prompt):
+            captured_prompt.append(prompt)
+            return SynthesizeOutput(
+                tradition_cards=[TraditionCard(tradition="S", author="A", quote="q", citation="c", analysis="a")],
+                action_steps=[ActionStep(n="01", title="t", body="b")],
+            )
+
+    synthesize = create_synthesize_node(MockLLM())
+    long_content = "X" * 2000  # 2000 chars, should be capped at 500
+    state = {
+        "situation": "test",
+        "refined_docs": None,
+        "retrieved_docs": [Document(page_content=long_content, metadata={"tradition": "stoic", "citation": "ref"})],
+        "clarify_answer": "yes",
+        "tradition_hints": [], "query": "", "grade_result": "",
+        "clarify_question": "", "clarify_chips": [], "tradition_cards": [],
+        "action_steps": [], "messages": [], "rewrite_count": 0,
+    }
+    await synthesize(state)
+
+    assert captured_prompt, "LLM was not called"
+    prompt = captured_prompt[0]
+    # The 2000-char content should be truncated; verify "X"*501 is not in prompt
+    assert "X" * 501 not in prompt, "Document content was not capped at 500 chars"
+    assert "X" * 499 in prompt, "Document content was truncated too aggressively"

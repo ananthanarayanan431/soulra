@@ -42,9 +42,10 @@ def create_synthesize_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(SynthesizeOutput)
 
     async def synthesize(state: SoulraState) -> dict:
-        docs = state["refined_docs"] or state["retrieved_docs"]
+        refined = state["refined_docs"]
+        docs = refined if refined is not None else state["retrieved_docs"]
         passages = "\n\n".join(
-            f"[{d.metadata.get('tradition', 'unknown')} — {d.metadata.get('citation', '')}]\n{d.page_content}"
+            f"[{d.metadata.get('tradition', 'unknown')} — {d.metadata.get('citation', '')}]\n{d.page_content[:500]}"
             for d in docs[:8]
         )
         prompt = SYNTHESIZE_PROMPT.format(
