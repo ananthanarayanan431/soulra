@@ -1,3 +1,5 @@
+import hashlib
+
 from langchain_core.documents import Document
 from langchain_postgres import PGVector
 from soulra.core.exceptions import RetrievalError
@@ -20,5 +22,6 @@ class WisdomRetriever:
                 kwargs["filter"] = {"tradition": tradition_filter}
             return await self.vectorstore.asimilarity_search(query, **kwargs)
         except Exception as e:
-            logger.error("retrieval_failed", query=query, error=str(e))
+            query_hash = hashlib.sha256(query.encode()).hexdigest()[:12]
+            logger.error("retrieval_failed", query_hash=query_hash, error=str(e))
             raise RetrievalError(f"Vector search failed: {e}") from e

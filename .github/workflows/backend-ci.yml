@@ -1,0 +1,84 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "soulra-backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "soulra-backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+defaults:
+  run:
+    working-directory: soulra-backend
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: soulra-backend/pyproject.toml
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format --check
+        run: ruff format --check .
+
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: soulra-backend/pyproject.toml
+
+      - name: Install package + mypy
+        run: pip install -e ".[dev]" mypy
+
+      - name: mypy
+        run: mypy soulra/ --ignore-missing-imports
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: soulra-backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --tb=short
+
+  docker-build:
+    name: Docker build check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t soulra-backend:ci .

@@ -15,10 +15,29 @@ Extract:
 
 Respond with a JSON object with keys "tradition_hints" and "query"."""
 
+MAX_TRADITION_HINTS = 5
+MAX_HINT_LENGTH = 50
+
 
 class IntakeOutput(BaseModel):
     tradition_hints: list[str]
     query: str
+
+
+def _sanitize_hints(hints: list) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for h in hints:
+        if not isinstance(h, str):
+            continue
+        h = h.strip()[:MAX_HINT_LENGTH]
+        if not h or h in seen:
+            continue
+        seen.add(h)
+        result.append(h)
+        if len(result) >= MAX_TRADITION_HINTS:
+            break
+    return result
 
 
 def create_intake_node(llm: ChatOpenAI):
@@ -31,7 +50,7 @@ def create_intake_node(llm: ChatOpenAI):
         )
         result: IntakeOutput = await structured_llm.ainvoke(prompt)
         return {
-            "tradition_hints": result.tradition_hints,
+            "tradition_hints": _sanitize_hints(result.tradition_hints),
             "query": result.query,
             "rewrite_count": 0,
         }

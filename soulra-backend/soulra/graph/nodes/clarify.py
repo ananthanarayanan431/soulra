@@ -30,9 +30,12 @@ def create_clarify_node(llm: ChatOpenAI):
     async def clarify(state: SoulraState) -> dict:
         prompt = CLARIFY_PROMPT.format(situation=state["situation"])
         result: ClarifyOutput = await structured_llm.ainvoke(prompt)
+        fallbacks = [f"Clarify option {i + 1}" for i in range(4)]
+        chips = result.chips[:4]
+        chips = chips + fallbacks[len(chips):]
         return {
             "clarify_question": result.question,
-            "clarify_chips": result.chips[:4],
+            "clarify_chips": chips,
         }
 
     return clarify

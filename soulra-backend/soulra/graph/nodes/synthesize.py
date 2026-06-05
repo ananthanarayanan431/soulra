@@ -44,10 +44,13 @@ def create_synthesize_node(llm: ChatOpenAI):
     async def synthesize(state: SoulraState) -> dict:
         refined = state["refined_docs"]
         docs = refined if refined is not None else state["retrieved_docs"]
-        passages = "\n\n".join(
-            f"[{d.metadata.get('tradition', 'unknown')} — {d.metadata.get('citation', '')}]\n{d.page_content[:500]}"
-            for d in docs[:8]
-        )
+        if docs:
+            passages = "\n\n".join(
+                f"[{d.metadata.get('tradition', 'unknown')} — {d.metadata.get('citation', '')}]\n{d.page_content[:500]}"
+                for d in docs[:8]
+            )
+        else:
+            passages = "[No source passages available — do not invent quotes.]"
         prompt = SYNTHESIZE_PROMPT.format(
             situation=state["situation"],
             clarify_answer=state.get("clarify_answer") or "not provided",

@@ -12,6 +12,7 @@ def test_chunk_documents_splits_long_text():
 def test_chunk_documents_preserves_metadata():
     docs = [Document(page_content="Short text.", metadata={"tradition": "stoic", "author": "Marcus"})]
     chunks = chunk_documents(docs)
+    assert chunks
     assert all(c.metadata["tradition"] == "stoic" for c in chunks)
     assert all(c.metadata["author"] == "Marcus" for c in chunks)
 

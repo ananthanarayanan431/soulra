@@ -1,5 +1,5 @@
+from pydantic import ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
 import json
 
 
@@ -37,5 +37,5 @@ def get_settings() -> "Settings":
 # Tests that need an unconfigured Settings should call Settings() directly.
 try:
     settings = Settings()
-except Exception:  # pragma: no cover
+except ValidationError:  # pragma: no cover
     settings = None  # type: ignore[assignment]

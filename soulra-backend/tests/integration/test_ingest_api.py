@@ -65,17 +65,18 @@ async def test_ingest_text_returns_job_id(client):
 
 @pytest.mark.asyncio
 async def test_ingest_url_returns_job_id(client):
-    resp = await client.post(
-        "/api/v1/ingest/url",
-        data={
-            "url": "https://example.com/wisdom.txt",
-            "tradition": "stoic",
-            "author": "Marcus Aurelius",
-            "source": "Online",
-            "era": "ancient",
-        },
-    )
-    # URL fetch happens in background — just check 202 returned immediately
+    with patch("soulra.api.v1.ingest._check_url_not_ssrf"), \
+         patch("soulra.api.v1.ingest._run_ingestion_task"):
+        resp = await client.post(
+            "/api/v1/ingest/url",
+            data={
+                "url": "https://example.com/wisdom.txt",
+                "tradition": "stoic",
+                "author": "Marcus Aurelius",
+                "source": "Online",
+                "era": "ancient",
+            },
+        )
     assert resp.status_code == 202
     data = resp.json()
     assert data["success"] is True

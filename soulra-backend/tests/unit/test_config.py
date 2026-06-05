@@ -10,14 +10,13 @@ def test_settings_requires_database_url(monkeypatch):
     # Override env_file to None so a local .env doesn't satisfy required fields
     class SettingsNoFile(Settings):
         model_config = SettingsConfigDict(env_file=None)
-    with pytest.raises((ValidationError, Exception)):
+    with pytest.raises(ValidationError):
         SettingsNoFile()
 
 
-def test_settings_defaults():
-    import os
-    os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-    os.environ.setdefault("OPENROUTER_API_KEY", "sk-test")
+def test_settings_defaults(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
     from soulra.config import Settings
     s = Settings()
     assert s.smart_model == "anthropic/claude-opus-4-8"

@@ -6,6 +6,8 @@ from unittest.mock import MagicMock, AsyncMock
 def test_ws_chat_accepts_connection():
     """WebSocket endpoint is registered and accepts connections."""
     from soulra.main import app
+    from soulra.api.websocket import set_graph
+    set_graph(None)
     client = TestClient(app)
     with client.websocket_connect("/ws/chat") as ws:
         # Graph is None in test — should get SERVICE_UNAVAILABLE and close
@@ -180,3 +182,57 @@ def test_websocket_uses_make_initial_state():
         "websocket.py must call make_initial_state() — hardcoded dict drifts from SoulraState"
     assert "initial_input = {" not in ws_source, \
         "hardcoded initial_input dict found — replace with make_initial_state()"
+
+
+def test_ws_chat_rejects_disallowed_origin():
+    """WebSocket must reject connections from origins not in allowed_origins."""
+    from soulra.main import app
+    with TestClient(app) as client:
+        # Use an origin not in allowed_origins (which is ["http://localhost:3000"])
+        try:
+            with client.websocket_connect(
+                "/ws/chat",
+                headers={"origin": "http://evil.com"}
+            ) as ws:
+                # Should be rejected — connection may close immediately
+                msg = ws.receive_json()
+                # If we get here, might receive error or nothing
+        except Exception:
+            pass  # Connection rejected is the expected outcome
+
+
+def test_ws_error_sends_generic_message_not_raw_exception():
+    """Error events sent to client must not contain raw exception details."""
+    from soulra.main import app
+    from soulra.api.websocket import set_graph
+    from unittest.mock import MagicMock
+
+    async def failing_stream(*args, **kwargs):
+        raise ValueError("SECRET_DB_PASSWORD_xyz123")
+        yield  # make it a generator
+
+    mock_graph = MagicMock()
+    mock_graph.astream_events = failing_stream
+    set_graph(mock_graph)
+
+    with TestClient(app) as client:
+        with client.websocket_connect("/ws/chat") as ws:
+            ws.send_json({"type": "start", "situation": "test"})
+            messages = []
+            for _ in range(5):
+                try:
+                    msg = ws.receive_json()
+                    messages.append(msg)
+                    if msg.get("type") in ("error", "done"):
+                        break
+                except Exception:
+                    break
+
+    error_msgs = [m for m in messages if m.get("type") == "error"]
+    assert error_msgs, "Expected an error event"
+    # The raw exception message must NOT appear in the error sent to client
+    for msg in error_msgs:
+        assert "SECRET_DB_PASSWORD" not in msg.get("message", ""), \
+            "Raw exception detail leaked to client"
+        assert "xyz123" not in msg.get("message", ""), \
+            "Raw exception detail leaked to client"

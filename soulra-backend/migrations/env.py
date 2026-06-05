@@ -10,7 +10,7 @@ import soulra.models.conversation  # noqa: F401 — registers models
 import soulra.models.ingest_job    # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 if config.config_file_name:
     fileConfig(config.config_file_name)
