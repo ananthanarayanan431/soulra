@@ -123,3 +123,60 @@ def test_ws_chat_sends_clarify_and_done():
         assert call_args[0][1]["clarify_answer"] == "Internal"
     finally:
         set_graph(None)
+
+
+def test_ws_chat_sends_error_on_graph_error():
+    """Phase-1 loop must exit with ErrorEvent (not deadlock) when graph emits on_chain_error."""
+    from soulra.main import app
+    from soulra.api.websocket import set_graph
+    import json
+
+    async def mock_stream_with_error(*args, **kwargs):
+        yield {"event": "on_chain_start", "name": "intake", "data": {}}
+        yield {"event": "on_chain_error", "name": "clarify", "data": {"error": "LLM failed"}}
+
+    mock_graph = MagicMock()
+    mock_graph.astream_events = mock_stream_with_error
+    set_graph(mock_graph)
+
+    try:
+        with TestClient(app) as client:
+            with client.websocket_connect("/ws/chat") as ws:
+                ws.send_json({"type": "start", "situation": "test situation"})
+                messages = []
+                for _ in range(10):
+                    try:
+                        msg = ws.receive_json()
+                        messages.append(msg)
+                        if msg.get("type") in ("error", "done", "chips"):
+                            break
+                    except Exception:
+                        break
+
+        types = [m.get("type") for m in messages]
+        assert "error" in types, f"Expected ErrorEvent on graph error, got: {types}"
+        # Crucially: no deadlock — test completes within timeout
+    finally:
+        set_graph(None)
+
+
+def test_make_initial_state_covers_all_soulra_state_keys():
+    """make_initial_state must produce a dict with all SoulraState keys."""
+    from soulra.graph.state import make_initial_state, SoulraState
+    import typing
+    state = make_initial_state("test situation")
+    expected_keys = set(SoulraState.__annotations__.keys())
+    actual_keys = set(state.keys())
+    assert actual_keys == expected_keys, \
+        f"Missing keys: {expected_keys - actual_keys}, Extra keys: {actual_keys - expected_keys}"
+    assert state["situation"] == "test situation"
+
+
+def test_websocket_uses_make_initial_state():
+    """websocket.py must use make_initial_state instead of a hardcoded dict."""
+    import ast, pathlib
+    ws_source = pathlib.Path("soulra/api/websocket.py").read_text()
+    assert "make_initial_state" in ws_source, \
+        "websocket.py must call make_initial_state() — hardcoded dict drifts from SoulraState"
+    assert "initial_input = {" not in ws_source, \
+        "hardcoded initial_input dict found — replace with make_initial_state()"

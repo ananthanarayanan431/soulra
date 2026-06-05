@@ -8,6 +8,7 @@ from soulra.schemas.websocket import (
     TraditionDoneEvent, ActionStepEvent, DoneEvent, ErrorEvent,
 )
 from soulra.core.logging import logger
+from soulra.graph.state import make_initial_state
 
 router = APIRouter(tags=["websocket"])
 
@@ -45,22 +46,9 @@ async def chat_ws(websocket: WebSocket):
 
         await send(StatusEvent(node="intake").model_dump())
 
-        initial_input = {
-            "situation": msg.situation,
-            "tradition_hints": [],
-            "query": "",
-            "retrieved_docs": [],
-            "grade_result": "",
-            "clarify_question": "",
-            "clarify_chips": [],
-            "clarify_answer": None,
-            "refined_docs": [],
-            "tradition_cards": [],
-            "action_steps": [],
-            "messages": [],
-            "rewrite_count": 0,
-        }
+        initial_input = make_initial_state(msg.situation)
 
+        clarify_done = False
         async for event in graph.astream_events(initial_input, config, version="v2"):
             name = event.get("name", "")
             etype = event.get("event", "")
@@ -70,6 +58,11 @@ async def chat_ws(websocket: WebSocket):
             ):
                 await send(StatusEvent(node=name).model_dump())
 
+            if etype == "on_chain_error":
+                err = event.get("data", {}).get("error", "graph error")
+                await send(ErrorEvent(message=str(err), code="GRAPH_ERROR").model_dump())
+                return  # exit the handler entirely
+
             if etype == "on_chain_end" and name == "clarify":
                 output = event.get("data", {}).get("output", {})
                 question = output.get("clarify_question", "")
@@ -77,7 +70,13 @@ async def chat_ws(websocket: WebSocket):
                 if question:
                     await send(ClarifyEvent(question=question).model_dump())
                     await send(ChipsEvent(options=chips).model_dump())
+                clarify_done = True
                 break  # graph is now paused at interrupt_before["retrieve_refined"]
+
+        if not clarify_done:
+            # Stream ended without clarify — graph routed to END or had an undetected error
+            await send(ErrorEvent(message="Conversation ended before clarification", code="GRAPH_INCOMPLETE").model_dump())
+            return
 
         # Phase 2: wait for chip selection, resume graph
         raw = await websocket.receive_json()
@@ -88,6 +87,7 @@ async def chat_ws(websocket: WebSocket):
         await graph.aupdate_state(
             config,
             {"clarify_answer": clarification.choice},
+            as_node="retrieve_refined",
         )
 
         async for event in graph.astream_events(None, config, version="v2"):

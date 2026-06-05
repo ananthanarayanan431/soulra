@@ -18,3 +18,22 @@ class SoulraState(TypedDict):
     action_steps: list[dict]
     messages: Annotated[list, add_messages]
     rewrite_count: int            # max 2 rewrites before forcing clarify
+
+
+def make_initial_state(situation: str) -> SoulraState:
+    """Build a fully-initialised SoulraState for a new conversation."""
+    return SoulraState(
+        situation=situation,
+        tradition_hints=[],
+        query="",
+        retrieved_docs=[],
+        grade_result="",
+        clarify_question="",
+        clarify_chips=[],
+        clarify_answer=None,
+        refined_docs=[],
+        tradition_cards=[],
+        action_steps=[],
+        messages=[],
+        rewrite_count=0,
+    )
