@@ -27,9 +27,9 @@ class ClarifyOutput(BaseModel):
 def create_clarify_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(ClarifyOutput)
 
-    def clarify(state: SoulraState) -> dict:
+    async def clarify(state: SoulraState) -> dict:
         prompt = CLARIFY_PROMPT.format(situation=state["situation"])
-        result: ClarifyOutput = structured_llm.invoke(prompt)
+        result: ClarifyOutput = await structured_llm.ainvoke(prompt)
         return {
             "clarify_question": result.question,
             "clarify_chips": result.chips[:4],

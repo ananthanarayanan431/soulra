@@ -19,12 +19,12 @@ class RewriteOutput(BaseModel):
 def create_rewrite_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(RewriteOutput)
 
-    def rewrite(state: SoulraState) -> dict:
+    async def rewrite(state: SoulraState) -> dict:
         prompt = REWRITE_PROMPT.format(
             situation=state["situation"],
             query=state["query"],
         )
-        result: RewriteOutput = structured_llm.invoke(prompt)
+        result: RewriteOutput = await structured_llm.ainvoke(prompt)
         return {
             "query": result.rewritten_query,
             "rewrite_count": state["rewrite_count"] + 1,
