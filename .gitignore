@@ -30,8 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — ignore real secret files but allow example templates
+.env
+.env.*
+!.env.example
+!**/.env.example
 
 # vercel
 .vercel
@@ -39,3 +42,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python build artifacts
+*.egg-info/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

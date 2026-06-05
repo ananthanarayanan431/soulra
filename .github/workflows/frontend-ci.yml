@@ -1,0 +1,85 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "eslint.config.mjs"
+      - "next.config.*"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "public/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "eslint.config.mjs"
+      - "next.config.*"
+      - ".github/workflows/frontend-ci.yml"
+
+jobs:
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  typecheck:
+    name: TypeScript check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: tsc --noEmit
+        run: npm run typecheck
+
+  build:
+    name: Next.js build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # Stub secrets so the build doesn't fail without real values.
+          # Replace with actual secret names once they are added to the repo.
+          NEXT_PUBLIC_API_URL: http://localhost:8000
