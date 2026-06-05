@@ -33,16 +33,34 @@ async def lifespan(_app: FastAPI):
         logger.warning("alembic_skipped", reason=str(e))
 
     # Build LangGraph graph with Postgres checkpointer
+    from soulra.dependencies import set_vectorstore, set_retriever
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-        from soulra.dependencies import get_retriever, get_fast_llm, get_smart_llm
+        from langchain_postgres import PGVector
+        from soulra.dependencies import (
+            get_embeddings,
+            get_fast_llm,
+            get_smart_llm,
+        )
+        from soulra.services.retrieval.retriever import WisdomRetriever
         from soulra.graph.builder import build_graph
+
+        # Initialise PGVector and retriever here so they are bound to the
+        # current event loop and not held in lru_cache across reloads.
+        vs = PGVector(
+            embeddings=get_embeddings(),
+            collection_name="wisdom_passages",
+            connection=settings.database_url,
+        )
+        retriever = WisdomRetriever(vectorstore=vs)
+        set_vectorstore(vs)
+        set_retriever(retriever)
 
         # AsyncPostgresSaver needs a sync-style postgres URL (no +asyncpg)
         sync_db_url = settings.database_url.replace("+asyncpg", "")
         async with AsyncPostgresSaver.from_conn_string(sync_db_url) as checkpointer:
             graph = build_graph(
-                retriever=get_retriever(),
+                retriever=retriever,
                 fast_llm=get_fast_llm(),
                 smart_llm=get_smart_llm(),
                 checkpointer=checkpointer,
@@ -55,6 +73,8 @@ async def lifespan(_app: FastAPI):
         yield  # app starts without graph (WS returns SERVICE_UNAVAILABLE)
     finally:
         set_graph(None)
+        set_vectorstore(None)
+        set_retriever(None)
         logger.info("shutdown")
 
 

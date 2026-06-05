@@ -1,6 +1,5 @@
 # app/dependencies.py
 from functools import lru_cache
-from soulra.config import settings
 
 
 @lru_cache
@@ -9,20 +8,39 @@ def get_embeddings():
     return make_embeddings()
 
 
-@lru_cache
+# Module-level singletons initialised during app lifespan.
+# NOT cached with @lru_cache because PGVector holds async connections
+# bound to the event loop at construction time.  Caching them causes
+# "attached to a different loop" errors on uvicorn --reload.
+
+_vectorstore = None
+_retriever = None
+
+
+def set_vectorstore(vs) -> None:
+    global _vectorstore
+    _vectorstore = vs
+
+
+def set_retriever(r) -> None:
+    global _retriever
+    _retriever = r
+
+
 def get_vectorstore():
-    from langchain_postgres import PGVector
-    return PGVector(
-        embeddings=get_embeddings(),
-        collection_name="wisdom_passages",
-        connection=settings.database_url,
-    )
+    if _vectorstore is None:
+        raise RuntimeError(
+            "Vectorstore not initialised — call set_vectorstore() during app lifespan"
+        )
+    return _vectorstore
 
 
-@lru_cache
 def get_retriever():
-    from soulra.services.retrieval.retriever import WisdomRetriever
-    return WisdomRetriever(vectorstore=get_vectorstore())
+    if _retriever is None:
+        raise RuntimeError(
+            "Retriever not initialised — call set_retriever() during app lifespan"
+        )
+    return _retriever
 
 
 @lru_cache
