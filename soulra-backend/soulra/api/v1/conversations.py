@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -13,7 +13,8 @@ router = APIRouter(tags=["conversations"])
 
 @router.get("/conversations", response_model=SuccessResponse[list[ConversationOut]])
 async def list_conversations(
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = (
@@ -21,6 +22,7 @@ async def list_conversations(
         .options(selectinload(Conversation.action_steps))
         .order_by(Conversation.created_at.desc())
         .limit(limit)
+        .offset(offset)
     )
     rows = (await db.execute(stmt)).scalars().all()
     return SuccessResponse(data=[ConversationOut.model_validate(r) for r in rows])

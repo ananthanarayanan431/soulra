@@ -1,5 +1,9 @@
+import asyncio
 import contextlib
+import os
+import sys
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -20,15 +24,20 @@ async def lifespan(_app: FastAPI):
     configure_logging()
     logger.info("startup")
 
-    # Run Alembic migrations
-    import subprocess
+    # Run Alembic migrations (async — does not block the event loop)
+    _fail_fast = os.getenv("MIGRATION_FAIL_FAST", "false").lower() == "true"
     try:
-        subprocess.run(
-            ["alembic", "upgrade", "head"],
-            check=True,
-            capture_output=True,
-            cwd="/app",  # Docker working dir; fails gracefully outside Docker
+        proc = await asyncio.create_subprocess_exec(
+            "alembic", "upgrade", "head",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd="/app",
         )
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
+        if proc.returncode and proc.returncode != 0:
+            logger.error("alembic_failed", returncode=proc.returncode, stderr=stderr)
+            if _fail_fast:
+                sys.exit(1)
     except Exception as e:
         logger.warning("alembic_skipped", reason=str(e))
 
@@ -116,11 +125,34 @@ async def soulra_exception_handler(_request: Request, exc: SoulraException):
     )
 
 
+_HTTP_CODE_MAP = {
+    400: "BAD_REQUEST",
+    401: "UNAUTHORIZED",
+    403: "FORBIDDEN",
+    404: "NOT_FOUND",
+    409: "CONFLICT",
+    413: "PAYLOAD_TOO_LARGE",
+    422: "VALIDATION_ERROR",
+    503: "SERVICE_UNAVAILABLE",
+}
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_request: Request, exc: HTTPException):
+    code = _HTTP_CODE_MAP.get(exc.status_code, "HTTP_ERROR")
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
-            error=ErrorDetail(code="HTTP_ERROR", message=str(exc.detail))
+            error=ErrorDetail(code=code, message=str(exc.detail))
+        ).model_dump(),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_request: Request, _exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content=ErrorResponse(
+            error=ErrorDetail(code="VALIDATION_ERROR", message="Request validation failed")
         ).model_dump(),
     )

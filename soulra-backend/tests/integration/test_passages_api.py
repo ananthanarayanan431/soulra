@@ -18,7 +18,7 @@ async def test_list_passages_returns_array(client):
 @pytest.mark.asyncio
 async def test_list_passages_with_tradition_filter(client):
     mock_vs = MagicMock()
-    doc = Document(page_content="Stoic wisdom.", metadata={"tradition": "stoic", "author": "Marcus"})
+    doc = Document(page_content="Stoic wisdom.", metadata={"id": "p-1", "tradition": "stoic", "author": "Marcus"})
     mock_vs.asimilarity_search = AsyncMock(return_value=[doc])
     with patch("soulra.api.v1.passages._get_vs", return_value=mock_vs):
         resp = await client.get("/api/v1/passages?tradition=stoic")
@@ -48,3 +48,21 @@ async def test_list_collections_returns_collection_name(client):
     data = resp.json()
     assert data["success"] is True
     assert data["data"][0]["name"] == "wisdom_passages"
+
+
+@pytest.mark.asyncio
+async def test_list_passages_accepts_offset_param(client):
+    """GET /passages must accept offset query param without error."""
+    with patch("soulra.api.v1.passages._get_vs") as mock_vs_factory:
+        mock_vs = MagicMock()
+        mock_vs.asimilarity_search = AsyncMock(return_value=[])
+        mock_vs_factory.return_value = mock_vs
+        resp = await client.get("/api/v1/passages?offset=10&limit=20")
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_list_passages_rejects_limit_zero(client):
+    """limit=0 must be rejected."""
+    resp = await client.get("/api/v1/passages?limit=0")
+    assert resp.status_code == 422

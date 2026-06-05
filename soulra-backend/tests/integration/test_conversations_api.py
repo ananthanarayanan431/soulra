@@ -48,3 +48,30 @@ async def test_delete_conversation_removes_record(client, test_db):
 
     resp = await client.get(f"/api/v1/conversations/{conv.id}")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_list_conversations_supports_offset(client, test_db):
+    """GET /conversations must support offset-based pagination."""
+    # Create 3 conversations
+    for i in range(3):
+        c = Conversation(thread_id=f"thread-offset-{i}", situation=f"situation {i}")
+        test_db.add(c)
+    await test_db.flush()
+
+    resp_page1 = await client.get("/api/v1/conversations?limit=2&offset=0")
+    resp_page2 = await client.get("/api/v1/conversations?limit=2&offset=2")
+
+    assert resp_page1.status_code == 200
+    assert resp_page2.status_code == 200
+    page1_ids = [c["thread_id"] for c in resp_page1.json()["data"]]
+    page2_ids = [c["thread_id"] for c in resp_page2.json()["data"]]
+    # Pages should not overlap
+    assert not set(page1_ids) & set(page2_ids), "Pagination overlap detected"
+
+
+@pytest.mark.asyncio
+async def test_list_conversations_limit_requires_ge1(client):
+    """limit=0 must be rejected with 422."""
+    resp = await client.get("/api/v1/conversations?limit=0")
+    assert resp.status_code == 422

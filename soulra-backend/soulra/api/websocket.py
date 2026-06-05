@@ -1,4 +1,5 @@
 # app/api/websocket.py
+import asyncio
 import json
 import uuid
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -9,10 +10,13 @@ from soulra.schemas.websocket import (
 )
 from soulra.core.logging import logger
 from soulra.graph.state import make_initial_state
+from soulra.config import settings
 
 router = APIRouter(tags=["websocket"])
 
 _graph = None
+
+WS_RECEIVE_TIMEOUT = 60  # seconds
 
 
 def get_graph():
@@ -26,6 +30,10 @@ def set_graph(g) -> None:
 
 @router.websocket("/ws/chat")
 async def chat_ws(websocket: WebSocket):
+    origin = websocket.headers.get("origin", "")
+    if origin and origin not in settings.allowed_origins:
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
@@ -41,7 +49,12 @@ async def chat_ws(websocket: WebSocket):
 
     try:
         # Phase 1: receive situation, run graph until interrupt at retrieve_refined
-        raw = await websocket.receive_json()
+        try:
+            raw = await asyncio.wait_for(websocket.receive_json(), timeout=WS_RECEIVE_TIMEOUT)
+        except asyncio.TimeoutError:
+            await send(ErrorEvent(message="Connection timed out", code="TIMEOUT").model_dump())
+            await websocket.close()
+            return
         msg = StartMessage(**raw)
 
         await send(StatusEvent(node="intake").model_dump())
@@ -61,7 +74,8 @@ async def chat_ws(websocket: WebSocket):
             if etype == "on_chain_error":
                 err = event.get("data", {}).get("error", "graph error")
                 await send(ErrorEvent(message=str(err), code="GRAPH_ERROR").model_dump())
-                return  # exit the handler entirely
+                await websocket.close()
+                return
 
             if etype == "on_chain_end" and name == "clarify":
                 output = event.get("data", {}).get("output", {})
@@ -74,12 +88,17 @@ async def chat_ws(websocket: WebSocket):
                 break  # graph is now paused at interrupt_before["retrieve_refined"]
 
         if not clarify_done:
-            # Stream ended without clarify — graph routed to END or had an undetected error
             await send(ErrorEvent(message="Conversation ended before clarification", code="GRAPH_INCOMPLETE").model_dump())
+            await websocket.close()
             return
 
         # Phase 2: wait for chip selection, resume graph
-        raw = await websocket.receive_json()
+        try:
+            raw = await asyncio.wait_for(websocket.receive_json(), timeout=WS_RECEIVE_TIMEOUT)
+        except asyncio.TimeoutError:
+            await send(ErrorEvent(message="Connection timed out", code="TIMEOUT").model_dump())
+            await websocket.close()
+            return
         clarification = ClarificationMessage(**raw)
 
         await send(StatusEvent(node="retrieve_refined").model_dump())
@@ -110,8 +129,9 @@ async def chat_ws(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.info("ws_disconnected", thread_id=thread_id)
     except Exception as e:
-        logger.error("ws_error", error=str(e), thread_id=thread_id)
+        err_ref = str(uuid.uuid4())[:8]
+        logger.error("ws_error", error=str(e), thread_id=thread_id, ref=err_ref)
         try:
-            await send(ErrorEvent(message=str(e)).model_dump())
+            await send(ErrorEvent(message=f"Internal server error, ref: {err_ref}").model_dump())
         except Exception:
             pass
