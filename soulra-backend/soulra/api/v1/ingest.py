@@ -2,7 +2,7 @@ import uuid
 import io
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Form, UploadFile, File, BackgroundTasks, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
 from soulra.database import get_db
 from soulra.models.ingest_job import IngestJob
@@ -27,8 +27,6 @@ async def _run_ingestion_task(
     job_id: uuid.UUID,
     source_url: str | None = None,
 ):
-    from soulra.config import settings
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     try:
         eng = create_async_engine(settings.database_url)
         session_factory = async_sessionmaker(eng, expire_on_commit=False)
@@ -49,21 +47,37 @@ async def _run_ingestion_task(
                     metadata=metadata,
                 )
                 stmt = select(IngestJob).where(IngestJob.id == job_id)
-                row = (await session.execute(stmt)).scalar_one()
-                row.status = "done"
-                row.chunks_created = result["chunks_created"]
-                row.completed_at = datetime.now(timezone.utc)
-                await session.commit()
+                row = (await session.execute(stmt)).scalar_one_or_none()
+                if row is not None:
+                    row.status = "done"
+                    row.chunks_created = result["chunks_created"]
+                    row.completed_at = datetime.now(timezone.utc)
+                    await session.commit()
             except Exception as e:
                 stmt = select(IngestJob).where(IngestJob.id == job_id)
-                row = (await session.execute(stmt)).scalar_one()
-                row.status = "failed"
-                row.error = str(e)
-                await session.commit()
+                row = (await session.execute(stmt)).scalar_one_or_none()
+                if row is not None:
+                    row.status = "failed"
+                    row.error = str(e)
+                    await session.commit()
                 logger.error("ingestion_task_failed", job_id=str(job_id), error=str(e))
         await eng.dispose()
     except Exception as e:
         logger.error("ingestion_task_setup_failed", job_id=str(job_id), error=str(e))
+        # Best-effort: mark job as failed so callers aren't stuck polling 'processing'
+        try:
+            _eng = create_async_engine(settings.database_url)
+            _sf = async_sessionmaker(_eng, expire_on_commit=False)
+            async with _sf() as _session:
+                _stmt = select(IngestJob).where(IngestJob.id == job_id)
+                _row = (await _session.execute(_stmt)).scalar_one_or_none()
+                if _row is not None:
+                    _row.status = "failed"
+                    _row.error = f"Task setup failed: {e}"
+                    await _session.commit()
+            await _eng.dispose()
+        except Exception as _inner:
+            logger.error("ingestion_task_status_update_failed", job_id=str(job_id), error=str(_inner))
 
 
 @router.post("/ingest/pdf", status_code=202, response_model=SuccessResponse[IngestJobResponse])
