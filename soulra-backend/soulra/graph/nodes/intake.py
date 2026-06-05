@@ -24,12 +24,12 @@ class IntakeOutput(BaseModel):
 def create_intake_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(IntakeOutput)
 
-    def intake(state: SoulraState) -> dict:
+    async def intake(state: SoulraState) -> dict:
         prompt = INTAKE_PROMPT.format(
             situation=state["situation"],
             options=TRADITION_OPTIONS,
         )
-        result: IntakeOutput = structured_llm.invoke(prompt)
+        result: IntakeOutput = await structured_llm.ainvoke(prompt)
         return {
             "tradition_hints": result.tradition_hints,
             "query": result.query,

@@ -1,4 +1,5 @@
 # tests/unit/test_node_retrieve_grade.py
+import asyncio
 import pytest
 from unittest.mock import MagicMock
 from langchain_core.documents import Document
@@ -63,36 +64,87 @@ async def test_retrieve_refined_writes_to_refined_docs_key(mock_vectorstore):
     assert "retrieved_docs" not in result
 
 
-def test_grade_node_returns_relevant_when_majority_score_yes():
+@pytest.mark.asyncio
+async def test_grade_node_returns_relevant_when_majority_score_yes():
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
+    from unittest.mock import AsyncMock
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
-    mock_llm.invoke = MagicMock(return_value=GradeOutput(score="yes"))
+    mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
     grade = create_grade_node(mock_llm)
 
     docs = [
         Document(page_content="Stoic wisdom.", metadata={}),
         Document(page_content="More Stoic wisdom.", metadata={}),
     ]
-    result = grade(_make_state(retrieved_docs=docs))
+    result = await grade(_make_state(retrieved_docs=docs))
     assert result["grade_result"] == "relevant"
 
 
-def test_grade_node_returns_not_relevant_when_majority_score_no():
+@pytest.mark.asyncio
+async def test_grade_node_returns_not_relevant_when_majority_score_no():
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
+    from unittest.mock import AsyncMock
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
-    mock_llm.invoke = MagicMock(return_value=GradeOutput(score="no"))
+    mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="no"))
     grade = create_grade_node(mock_llm)
 
     docs = [Document(page_content="Recipes for pasta.", metadata={})]
-    result = grade(_make_state(retrieved_docs=docs))
+    result = await grade(_make_state(retrieved_docs=docs))
     assert result["grade_result"] == "not_relevant"
 
 
-def test_grade_node_returns_not_relevant_for_empty_docs():
+@pytest.mark.asyncio
+async def test_grade_node_returns_not_relevant_for_empty_docs():
     from soulra.graph.nodes.grade import create_grade_node
     mock_llm = MagicMock()
     grade = create_grade_node(mock_llm)
-    result = grade(_make_state(retrieved_docs=[]))
+    result = await grade(_make_state(retrieved_docs=[]))
     assert result["grade_result"] == "not_relevant"
+
+
+def test_grade_node_is_async():
+    """grade node function must be async def so it doesn't block the event loop."""
+    from soulra.graph.nodes.grade import create_grade_node
+    mock_llm = MagicMock()
+    mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
+    grade = create_grade_node(mock_llm)
+    assert asyncio.iscoroutinefunction(grade), \
+        "grade node must be async def — sync def blocks the asyncio event loop"
+
+
+@pytest.mark.asyncio
+async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
+    """grade node must use ainvoke (not invoke) and gather calls concurrently."""
+    from soulra.graph.nodes.grade import create_grade_node
+    from langchain_core.documents import Document
+    from unittest.mock import AsyncMock
+
+    call_log = []
+
+    class MockStructuredLLM:
+        async def ainvoke(self, prompt):
+            call_log.append(prompt)
+            class R:
+                score = "yes"
+            return R()
+
+    mock_llm = MagicMock()
+    mock_llm.with_structured_output = MagicMock(return_value=MockStructuredLLM())
+    grade = create_grade_node(mock_llm)
+
+    docs = [
+        Document(page_content=f"doc{i}", metadata={})
+        for i in range(4)
+    ]
+    state = {
+        "situation": "test", "query": "test query",
+        "retrieved_docs": docs, "tradition_hints": [],
+        "grade_result": "", "clarify_question": "", "clarify_chips": [],
+        "clarify_answer": None, "refined_docs": [], "tradition_cards": [],
+        "action_steps": [], "messages": [], "rewrite_count": 0,
+    }
+    result = await grade(state)
+    assert len(call_log) == 4, "Expected 4 ainvoke calls for 4 docs"
+    assert result["grade_result"] in ("relevant", "not_relevant")
