@@ -28,7 +28,7 @@ def make_initial_state(situation: str) -> SoulraState:
         tradition_hints=[],
         query="",
         retrieved_docs=[],
-        reranked_docs=[],              # new
+        reranked_docs=[],
         grade_result="",
         clarify_question="",
         clarify_chips=[],

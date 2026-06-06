@@ -25,6 +25,7 @@ def test_route_after_grade_returns_rewrite_when_not_relevant():
     state = {
         "grade_result": "not_relevant", "rewrite_count": 0,
         "situation": "", "tradition_hints": [], "query": "", "retrieved_docs": [],
+        "reranked_docs": [],
         "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
         "refined_docs": [], "tradition_cards": [], "action_steps": [],
         "messages": [],
@@ -37,6 +38,7 @@ def test_route_after_grade_returns_clarify_when_relevant():
     state = {
         "grade_result": "relevant", "rewrite_count": 0,
         "situation": "", "tradition_hints": [], "query": "", "retrieved_docs": [],
+        "reranked_docs": [],
         "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
         "refined_docs": [], "tradition_cards": [], "action_steps": [],
         "messages": [],
@@ -49,6 +51,7 @@ def test_route_after_grade_forces_clarify_after_max_rewrites():
     state = {
         "grade_result": "not_relevant", "rewrite_count": 2,
         "situation": "", "tradition_hints": [], "query": "", "retrieved_docs": [],
+        "reranked_docs": [],
         "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
         "refined_docs": [], "tradition_cards": [], "action_steps": [],
         "messages": [],
