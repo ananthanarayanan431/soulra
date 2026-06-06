@@ -15,6 +15,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     build: .
     ports:
@@ -23,8 +36,28 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./soulra:/app/soulra
+
+  worker:
+    build: .
+    command: >
+      celery -A soulra.celery_app worker
+      --loglevel=info
+      --queues=ingest
+      --concurrency=2
+      --max-tasks-per-child=50
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./soulra:/app/soulra
 
 volumes:
   pgdata:
+  redisdata:

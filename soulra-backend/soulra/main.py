@@ -17,12 +17,14 @@ from soulra.api.v1.ingest import router as ingest_router
 from soulra.api.v1.passages import router as passages_router
 from soulra.api.v1.conversations import router as conversations_router
 from soulra.api.websocket import router as ws_router, set_graph
+from soulra.services import cache as job_cache
 
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging()
     logger.info("startup")
+    job_cache.init_redis(settings.redis_url)
 
     # Run Alembic migrations (async — does not block the event loop)
     _fail_fast = os.getenv("MIGRATION_FAIL_FAST", "false").lower() == "true"
@@ -84,6 +86,7 @@ async def lifespan(_app: FastAPI):
         set_graph(None)
         set_vectorstore(None)
         set_retriever(None)
+        await job_cache.close_redis()
         logger.info("shutdown")
 
 
