@@ -42,6 +42,7 @@ class TraditionDoneEvent(BaseModel):
     quote: str
     citation: str
     analysis: str
+    source_passage: str
 
 
 class ActionStepEvent(BaseModel):

@@ -216,3 +216,30 @@ async def test_synthesize_caps_content_at_500_chars():
     await synthesize(_make_state(reranked_docs=[doc]))
     assert "X" * 501 not in captured_prompt[0]
     assert "X" * 499 in captured_prompt[0]
+
+
+@pytest.mark.asyncio
+async def test_synthesize_empty_reranked_docs_sends_fallback_marker():
+    from soulra.graph.nodes.synthesize import (
+        create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep,
+    )
+    captured_prompt = []
+
+    class CaptureLLM:
+        def with_structured_output(self, schema):
+            return self
+        async def ainvoke(self, prompt):
+            captured_prompt.append(prompt)
+            return SynthesizeOutput(
+                tradition_cards=[TraditionCard(
+                    tradition="S", author="A", quote="q", citation="c",
+                    analysis="a", source_passage="sp",
+                )],
+                action_steps=[ActionStep(n="01", title="t", body="b")],
+            )
+
+    synthesize = create_synthesize_node(CaptureLLM())
+    result = await synthesize(_make_state(reranked_docs=[]))
+    assert "No source passages available" in captured_prompt[0], \
+        "Empty reranked_docs must send fallback marker to LLM"
+    assert "tradition_cards" in result
