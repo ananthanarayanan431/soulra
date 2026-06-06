@@ -31,3 +31,13 @@ def test_make_embeddings_uses_openrouter():
         from soulra.services.llm.factory import make_embeddings
         emb = make_embeddings()
         assert "openrouter" in emb.openai_api_base
+
+
+def test_make_chat_llm_uses_temperature_zero():
+    with patch("soulra.services.llm.factory.settings") as mock_settings:
+        mock_settings.openrouter_api_key = "sk-test"
+        mock_settings.smart_model = "anthropic/claude-opus-4-8"
+        from soulra.services.llm.factory import make_chat_llm
+        llm = make_chat_llm("anthropic/claude-opus-4-8")
+        assert llm.temperature == 0, \
+            f"LLM temperature must be 0 for deterministic RAG output, got {llm.temperature}"

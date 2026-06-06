@@ -10,6 +10,7 @@ def make_chat_llm(model: str, streaming: bool = True) -> ChatOpenAI:
         base_url=OPENROUTER_BASE,
         api_key=settings.openrouter_api_key,
         streaming=streaming,
+        temperature=0,
     )
 
 
