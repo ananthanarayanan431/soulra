@@ -228,6 +228,10 @@ async def test_grade_node_reads_from_reranked_docs_not_retrieved():
     # Grade is called once (for the 1 doc in reranked_docs)
     assert mock_llm.ainvoke.call_count == 1
     assert result["grade_result"] == "relevant"
+    # Verify the prompt was built from reranked_docs content, not retrieved_docs
+    prompt_arg = mock_llm.ainvoke.call_args[0][0]
+    assert "Reranked stoic wisdom." in prompt_arg
+    assert "retrieved-0" not in prompt_arg
 
 
 @pytest.mark.asyncio
@@ -242,9 +246,10 @@ async def test_grade_node_emits_selection_recall_log(caplog):
 
     retrieved = [Document(page_content=f"r{i}", metadata={"id": f"id{i}"}) for i in range(10)]
     reranked = retrieved[:3]
-    await grade(_make_state(retrieved_docs=retrieved, reranked_docs=reranked))
+    result = await grade(_make_state(retrieved_docs=retrieved, reranked_docs=reranked))
     # structlog logs to stdout, not caplog — just verify no exception is raised
-    # (The log is verified by observing it in the integration environment)
+    # and that grading completed on the non-empty path
+    assert result["grade_result"] == "relevant"
 
 
 @pytest.mark.asyncio

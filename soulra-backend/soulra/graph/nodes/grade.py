@@ -36,6 +36,7 @@ def create_grade_node(llm: ChatOpenAI):
     async def grade(state: SoulraState) -> dict:
         docs = state["reranked_docs"]
         if not docs:
+            logger.warning("grade_skipped_empty_reranked_docs")
             return {"grade_result": "not_relevant"}
 
         sample = docs[:GRADE_SAMPLE_SIZE]
