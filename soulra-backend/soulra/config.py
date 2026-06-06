@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     database_url: str
     openrouter_api_key: str
     redis_url: str = "redis://localhost:6379/0"
+    cohere_api_key: str
 
     smart_model: str = "anthropic/claude-opus-4-8"
     fast_model: str = "anthropic/claude-sonnet-4-6"
