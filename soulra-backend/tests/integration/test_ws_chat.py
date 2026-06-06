@@ -52,6 +52,7 @@ def test_ws_chat_sends_clarify_and_done():
                             "quote": "You always own the option of having no opinion.",
                             "citation": "Meditations 6.13",
                             "analysis": "The Stoic move is to notice the request comes from outside.",
+                            "source_passage": "Stoic wisdom excerpt for grounding.",
                         }
                     ],
                     "action_steps": [
