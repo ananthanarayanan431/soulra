@@ -11,6 +11,7 @@ def _make_state(**overrides):
         "query": "refusing gracefully",
         "tradition_hints": ["stoic", "buddhist"],
         "retrieved_docs": [],
+        "reranked_docs": [],
         "grade_result": "",
         "clarify_question": "",
         "clarify_chips": [],
@@ -151,7 +152,7 @@ async def test_retrieve_node_searches_traditions_concurrently():
     state = {
         "query": "refusing gracefully",
         "tradition_hints": ["stoic", "buddhist", "vedanta"],
-        "retrieved_docs": [], "situation": "", "grade_result": "",
+        "retrieved_docs": [], "reranked_docs": [], "situation": "", "grade_result": "",
         "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
         "refined_docs": [], "tradition_cards": [], "action_steps": [],
         "messages": [], "rewrite_count": 0,
@@ -200,7 +201,7 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     ]
     state = {
         "situation": "test", "query": "test query",
-        "retrieved_docs": docs, "tradition_hints": [],
+        "retrieved_docs": docs, "reranked_docs": [], "tradition_hints": [],
         "grade_result": "", "clarify_question": "", "clarify_chips": [],
         "clarify_answer": None, "refined_docs": [], "tradition_cards": [],
         "action_steps": [], "messages": [], "rewrite_count": 0,

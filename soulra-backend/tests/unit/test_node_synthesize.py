@@ -6,13 +6,18 @@ from langchain_core.documents import Document
 
 def _make_state(**overrides):
     docs = [
-        Document(page_content="Stoic wisdom.", metadata={"tradition": "stoic", "author": "Marcus Aurelius", "citation": "Meditations 6.13"}),
+        Document(page_content="Stoic wisdom.", metadata={
+            "tradition": "stoic", "author": "Marcus Aurelius",
+            "citation": "Meditations 6.13", "source": "Meditations",
+            "era": "170 AD", "ingested_at": "2026-06-06T00:00:00+00:00",
+        }),
     ]
     base = {
         "situation": "I say yes too much.",
         "query": "refusing",
         "tradition_hints": ["stoic"],
         "retrieved_docs": docs,
+        "reranked_docs": docs,         # new
         "grade_result": "relevant",
         "clarify_question": "Is this internal?",
         "clarify_chips": ["Yes", "No"],
@@ -104,6 +109,7 @@ async def test_synthesize_uses_refined_docs_not_retrieved_when_refined_is_empty(
         "situation": "test",
         "refined_docs": [],   # explicitly empty — retrieve_refined ran but found nothing
         "retrieved_docs": [retrieved_doc],
+        "reranked_docs": [],
         "clarify_answer": "Something inside me",
         "tradition_hints": [], "query": "", "grade_result": "",
         "clarify_question": "", "clarify_chips": [], "tradition_cards": [],
@@ -140,6 +146,7 @@ async def test_synthesize_caps_document_content_at_500_chars():
         "situation": "test",
         "refined_docs": None,
         "retrieved_docs": [Document(page_content=long_content, metadata={"tradition": "stoic", "citation": "ref"})],
+        "reranked_docs": [],
         "clarify_answer": "yes",
         "tradition_hints": [], "query": "", "grade_result": "",
         "clarify_question": "", "clarify_chips": [], "tradition_cards": [],

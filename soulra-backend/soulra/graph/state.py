@@ -9,6 +9,7 @@ class SoulraState(TypedDict):
     tradition_hints: list[str]    # extracted by intake: ["stoic", "buddhist"]
     query: str                    # current search query (may be rewritten)
     retrieved_docs: list[Document]
+    reranked_docs: list[Document]      # top-5 after Cohere rerank + U-shape
     grade_result: str             # "relevant" | "not_relevant"
     clarify_question: str
     clarify_chips: list[str]
@@ -27,6 +28,7 @@ def make_initial_state(situation: str) -> SoulraState:
         tradition_hints=[],
         query="",
         retrieved_docs=[],
+        reranked_docs=[],              # new
         grade_result="",
         clarify_question="",
         clarify_chips=[],
