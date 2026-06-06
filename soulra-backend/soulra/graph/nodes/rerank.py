@@ -1,6 +1,18 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from langchain_core.documents import Document
 from soulra.core.logging import logger
 from soulra.graph.state import SoulraState
+
+if TYPE_CHECKING:
+    import cohere
+
+_COHERE_RERANK_MODEL = "rerank-v3.5"
+_RERANK_TOP_N = 5
+_DEDUP_THRESHOLD = 0.8
+_DEDUP_LEAD_CHARS = 100
 
 
 def _jaccard(a: str, b: str) -> float:
@@ -10,11 +22,11 @@ def _jaccard(a: str, b: str) -> float:
     return len(sa & sb) / len(sa | sb)
 
 
-def _near_dedup(docs: list[Document], threshold: float = 0.8) -> list[Document]:
+def _near_dedup(docs: list[Document], threshold: float = _DEDUP_THRESHOLD) -> list[Document]:
     accepted: list[Document] = []
     for doc in docs:
-        lead = doc.page_content[:100]
-        if not any(_jaccard(lead, a.page_content[:100]) > threshold for a in accepted):
+        lead = doc.page_content[:_DEDUP_LEAD_CHARS]
+        if not any(_jaccard(lead, a.page_content[:_DEDUP_LEAD_CHARS]) > threshold for a in accepted):
             accepted.append(doc)
     return accepted
 
@@ -35,7 +47,7 @@ def _u_shape(docs: list[Document]) -> list[Document]:
     return [d for d in result if d is not None]
 
 
-def create_rerank_node(cohere_client, input_key: str = "retrieved_docs", output_key: str = "reranked_docs"):
+def create_rerank_node(cohere_client: "cohere.AsyncClient", input_key: str = "retrieved_docs", output_key: str = "reranked_docs"):
     async def rerank(state: SoulraState) -> dict:
         docs: list[Document] = state.get(input_key) or []
         if not docs:
@@ -43,15 +55,15 @@ def create_rerank_node(cohere_client, input_key: str = "retrieved_docs", output_
 
         try:
             response = await cohere_client.rerank(
-                model="rerank-v3.5",
+                model=_COHERE_RERANK_MODEL,
                 query=state["query"],
                 documents=[d.page_content for d in docs],
-                top_n=min(5, len(docs)),
+                top_n=min(_RERANK_TOP_N, len(docs)),
             )
             ranked = [docs[r.index] for r in response.results]
         except Exception as exc:
             logger.warning("rerank_failed_fallback", error=str(exc))
-            ranked = docs[:5]
+            ranked = docs[:_RERANK_TOP_N]
 
         deduped = _near_dedup(ranked)
         shaped = _u_shape(deduped)

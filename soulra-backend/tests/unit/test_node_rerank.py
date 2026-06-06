@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from langchain_core.documents import Document
@@ -42,7 +43,7 @@ def test_near_dedup_keeps_distinct_docs():
 
 def test_near_dedup_drops_near_duplicate():
     from soulra.graph.nodes.rerank import _near_dedup
-    # Almost identical leading 120 chars
+    # 100 chars of identical leading content (slice size)
     base = "word " * 20           # 100 chars of shared content
     docs = [_doc(base + " extra_a"), _doc(base + " extra_b")]
     result = _near_dedup(docs)
@@ -181,7 +182,7 @@ async def test_rerank_node_falls_back_on_cohere_failure():
     node = create_rerank_node(mock_cohere)
     result = await node(_make_state(retrieved_docs=docs))
 
-    # Graceful degradation: returns first 5 docs in original order
+    # graceful degradation: first 5 docs passed through _near_dedup and _u_shape
     assert len(result["reranked_docs"]) == 5
     assert result["reranked_docs"][0] is docs[0]
 
@@ -200,3 +201,9 @@ async def test_rerank_node_uses_custom_input_output_keys():
     result = await node(state)
     assert "reranked_docs" in result
     assert len(result["reranked_docs"]) == 1
+
+
+def test_rerank_node_is_async():
+    from soulra.graph.nodes.rerank import create_rerank_node
+    node = create_rerank_node(MagicMock())
+    assert asyncio.iscoroutinefunction(node)
