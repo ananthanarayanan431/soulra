@@ -26,6 +26,10 @@ async def lifespan(_app: FastAPI):
     logger.info("startup")
     job_cache.init_redis(settings.redis_url)
 
+    import cohere as cohere_sdk
+    from soulra.dependencies import set_cohere_client
+    set_cohere_client(cohere_sdk.AsyncClient(api_key=settings.cohere_api_key))
+
     # Run Alembic migrations (async — does not block the event loop)
     _fail_fast = os.getenv("MIGRATION_FAIL_FAST", "false").lower() == "true"
     try:
@@ -52,6 +56,7 @@ async def lifespan(_app: FastAPI):
             get_embeddings,
             get_fast_llm,
             get_smart_llm,
+            get_cohere_client,
         )
         from soulra.services.retrieval.retriever import WisdomRetriever
         from soulra.graph.builder import build_graph
@@ -75,6 +80,7 @@ async def lifespan(_app: FastAPI):
                 fast_llm=get_fast_llm(),
                 smart_llm=get_smart_llm(),
                 checkpointer=checkpointer,
+                cohere_client=get_cohere_client(),
             )
             set_graph(graph)
             logger.info("graph_ready")
