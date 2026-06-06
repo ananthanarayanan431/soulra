@@ -1,4 +1,3 @@
-# tests/unit/test_node_synthesize.py
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from langchain_core.documents import Document
@@ -6,10 +5,11 @@ from langchain_core.documents import Document
 
 def _make_state(**overrides):
     docs = [
-        Document(page_content="Stoic wisdom.", metadata={
+        Document(page_content="Stoic wisdom on equanimity.", metadata={
             "tradition": "stoic", "author": "Marcus Aurelius",
-            "citation": "Meditations 6.13", "source": "Meditations",
-            "era": "170 AD", "ingested_at": "2026-06-06T00:00:00+00:00",
+            "source": "Meditations", "era": "170 AD",
+            "citation": "Meditations 6.13",
+            "ingested_at": "2026-06-06T00:00:00+00:00",
         }),
     ]
     base = {
@@ -17,7 +17,7 @@ def _make_state(**overrides):
         "query": "refusing",
         "tradition_hints": ["stoic"],
         "retrieved_docs": docs,
-        "reranked_docs": docs,         # new
+        "reranked_docs": docs,
         "grade_result": "relevant",
         "clarify_question": "Is this internal?",
         "clarify_chips": ["Yes", "No"],
@@ -32,10 +32,18 @@ def _make_state(**overrides):
     return base
 
 
+def _mock_llm_with_output(output):
+    mock_llm = MagicMock()
+    mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
+    mock_llm.ainvoke = AsyncMock(return_value=output)
+    return mock_llm
+
+
 @pytest.mark.asyncio
 async def test_synthesize_produces_tradition_cards_and_action_steps():
-    from soulra.graph.nodes.synthesize import create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep
-
+    from soulra.graph.nodes.synthesize import (
+        create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep,
+    )
     mock_output = SynthesizeOutput(
         tradition_cards=[
             TraditionCard(
@@ -43,7 +51,8 @@ async def test_synthesize_produces_tradition_cards_and_action_steps():
                 author="Marcus Aurelius",
                 quote="You always own the option of having no opinion.",
                 citation="Meditations 6.13",
-                analysis="The Stoic move is to notice the request comes from outside.",
+                analysis="The Stoic move is to pause before committing.",
+                source_passage="You always own the option of having no opinion.",
             )
         ],
         action_steps=[
@@ -52,12 +61,7 @@ async def test_synthesize_produces_tradition_cards_and_action_steps():
             ActionStep(n="03", title="Say a small no", body="Decline one small thing."),
         ],
     )
-
-    mock_llm = MagicMock()
-    mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
-    mock_llm.ainvoke = AsyncMock(return_value=mock_output)
-    synthesize = create_synthesize_node(mock_llm)
-
+    synthesize = create_synthesize_node(_mock_llm_with_output(mock_output))
     result = await synthesize(_make_state())
     assert len(result["tradition_cards"]) == 1
     assert result["tradition_cards"][0]["tradition"] == "Stoic"
@@ -65,97 +69,150 @@ async def test_synthesize_produces_tradition_cards_and_action_steps():
 
 
 @pytest.mark.asyncio
-async def test_synthesize_falls_back_to_retrieved_docs_when_no_refined():
-    from soulra.graph.nodes.synthesize import create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep
-
-    mock_output = SynthesizeOutput(
-        tradition_cards=[TraditionCard(tradition="Buddhist", author="Pema", quote="q", citation="c", analysis="a")],
-        action_steps=[ActionStep(n="01", title="t", body="b"), ActionStep(n="02", title="t2", body="b2"), ActionStep(n="03", title="t3", body="b3")],
+async def test_synthesize_tradition_card_has_source_passage():
+    from soulra.graph.nodes.synthesize import (
+        create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep,
     )
-    mock_llm = MagicMock()
-    mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
-    mock_llm.ainvoke = AsyncMock(return_value=mock_output)
-    synthesize = create_synthesize_node(mock_llm)
-
-    # refined_docs is None — should fall back to retrieved_docs
-    result = await synthesize(_make_state(refined_docs=None))
-    assert len(result["tradition_cards"]) == 1
-
-
-@pytest.mark.asyncio
-async def test_synthesize_uses_refined_docs_not_retrieved_when_refined_is_empty():
-    """When refined_docs is [] (retrieve_refined ran but found nothing), we should NOT
-    fall back to retrieved_docs — that would silently ignore the user's chip selection.
-    Fall back to retrieved_docs only when refined_docs is None (never ran)."""
-    from soulra.graph.nodes.synthesize import create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep
-
-    calls = []
-
-    class MockLLM:
-        def with_structured_output(self, schema):
-            return self
-
-        async def ainvoke(self, prompt):
-            calls.append(prompt)
-            return SynthesizeOutput(
-                tradition_cards=[TraditionCard(tradition="Stoic", author="Marcus", quote="q", citation="c", analysis="a")],
-                action_steps=[ActionStep(n="01", title="t", body="b")],
+    mock_output = SynthesizeOutput(
+        tradition_cards=[
+            TraditionCard(
+                tradition="Buddhist",
+                author="Pema Chödrön",
+                quote="Lean into the sharp points.",
+                citation="When Things Fall Apart",
+                analysis="Resistance makes things worse.",
+                source_passage="Lean into the sharp points and fully experience them.",
             )
-
-    synthesize = create_synthesize_node(MockLLM())
-
-    retrieved_doc = Document(page_content="PRE-CLARIFICATION doc", metadata={"tradition": "stoic"})
-    state = {
-        "situation": "test",
-        "refined_docs": [],   # explicitly empty — retrieve_refined ran but found nothing
-        "retrieved_docs": [retrieved_doc],
-        "reranked_docs": [],
-        "clarify_answer": "Something inside me",
-        "tradition_hints": [], "query": "", "grade_result": "",
-        "clarify_question": "", "clarify_chips": [], "tradition_cards": [],
-        "action_steps": [], "messages": [], "rewrite_count": 0,
-    }
-    await synthesize(state)
-
-    # After fix: when refined_docs=[], we should NOT use "PRE-CLARIFICATION doc"
-    assert "PRE-CLARIFICATION" not in calls[0], \
-        "Bug: empty refined_docs fell back to retrieved_docs, ignoring clarification"
+        ],
+        action_steps=[
+            ActionStep(n="01", title="t1", body="b1"),
+            ActionStep(n="02", title="t2", body="b2"),
+            ActionStep(n="03", title="t3", body="b3"),
+        ],
+    )
+    synthesize = create_synthesize_node(_mock_llm_with_output(mock_output))
+    result = await synthesize(_make_state())
+    card = result["tradition_cards"][0]
+    assert "source_passage" in card, "TraditionCard must include source_passage for grounding verification"
+    assert card["source_passage"]   # must be non-empty
 
 
 @pytest.mark.asyncio
-async def test_synthesize_caps_document_content_at_500_chars():
-    """Each document in the prompt should be capped at 500 chars to prevent context overflow."""
-    from soulra.graph.nodes.synthesize import create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep
-
+async def test_synthesize_reads_from_reranked_docs():
+    from soulra.graph.nodes.synthesize import (
+        create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep,
+    )
     captured_prompt = []
 
-    class MockLLM:
+    class CaptureLLM:
         def with_structured_output(self, schema):
             return self
-
         async def ainvoke(self, prompt):
             captured_prompt.append(prompt)
             return SynthesizeOutput(
-                tradition_cards=[TraditionCard(tradition="S", author="A", quote="q", citation="c", analysis="a")],
+                tradition_cards=[TraditionCard(
+                    tradition="S", author="A", quote="q", citation="c",
+                    analysis="a", source_passage="sp",
+                )],
                 action_steps=[ActionStep(n="01", title="t", body="b")],
             )
 
-    synthesize = create_synthesize_node(MockLLM())
-    long_content = "X" * 2000  # 2000 chars, should be capped at 500
-    state = {
-        "situation": "test",
-        "refined_docs": None,
-        "retrieved_docs": [Document(page_content=long_content, metadata={"tradition": "stoic", "citation": "ref"})],
-        "reranked_docs": [],
-        "clarify_answer": "yes",
-        "tradition_hints": [], "query": "", "grade_result": "",
-        "clarify_question": "", "clarify_chips": [], "tradition_cards": [],
-        "action_steps": [], "messages": [], "rewrite_count": 0,
-    }
-    await synthesize(state)
+    synthesize = create_synthesize_node(CaptureLLM())
+    reranked_doc = Document(page_content="RERANKED wisdom.", metadata={
+        "tradition": "stoic", "author": "Marcus", "source": "Med",
+        "era": "170AD", "ingested_at": "2026-06-06T00:00:00+00:00",
+    })
+    result = await synthesize(_make_state(reranked_docs=[reranked_doc]))
+    assert "RERANKED wisdom." in captured_prompt[0], \
+        "synthesize must read from reranked_docs"
 
-    assert captured_prompt, "LLM was not called"
+
+@pytest.mark.asyncio
+async def test_synthesize_context_label_includes_metadata_fields():
+    from soulra.graph.nodes.synthesize import (
+        create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep,
+    )
+    captured_prompt = []
+
+    class CaptureLLM:
+        def with_structured_output(self, schema):
+            return self
+        async def ainvoke(self, prompt):
+            captured_prompt.append(prompt)
+            return SynthesizeOutput(
+                tradition_cards=[TraditionCard(
+                    tradition="S", author="A", quote="q", citation="c",
+                    analysis="a", source_passage="sp",
+                )],
+                action_steps=[ActionStep(n="01", title="t", body="b")],
+            )
+
+    synthesize = create_synthesize_node(CaptureLLM())
+    doc = Document(page_content="wisdom here", metadata={
+        "tradition": "stoic", "author": "Marcus Aurelius",
+        "source": "Meditations", "era": "170 AD",
+        "ingested_at": "2026-06-06T00:00:00+00:00",
+    })
+    await synthesize(_make_state(reranked_docs=[doc]))
     prompt = captured_prompt[0]
-    # The 2000-char content should be truncated; verify "X"*501 is not in prompt
-    assert "X" * 501 not in prompt, "Document content was not capped at 500 chars"
-    assert "X" * 499 in prompt, "Document content was truncated too aggressively"
+    assert "Marcus Aurelius" in prompt
+    assert "Meditations" in prompt
+    assert "170 AD" in prompt
+    assert "2026-06-06" in prompt   # ingested_at visible to LLM
+
+
+@pytest.mark.asyncio
+async def test_synthesize_prompt_contains_grounding_instruction():
+    from soulra.graph.nodes.synthesize import (
+        create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep,
+    )
+    captured_prompt = []
+
+    class CaptureLLM:
+        def with_structured_output(self, schema):
+            return self
+        async def ainvoke(self, prompt):
+            captured_prompt.append(prompt)
+            return SynthesizeOutput(
+                tradition_cards=[TraditionCard(
+                    tradition="S", author="A", quote="q", citation="c",
+                    analysis="a", source_passage="sp",
+                )],
+                action_steps=[ActionStep(n="01", title="t", body="b")],
+            )
+
+    synthesize = create_synthesize_node(CaptureLLM())
+    await synthesize(_make_state())
+    prompt = captured_prompt[0]
+    assert "ONLY" in prompt, "Prompt must contain strong grounding instruction"
+    assert "verbatim" in prompt.lower(), "Prompt must require verbatim quotes"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_caps_content_at_500_chars():
+    from soulra.graph.nodes.synthesize import (
+        create_synthesize_node, SynthesizeOutput, TraditionCard, ActionStep,
+    )
+    captured_prompt = []
+
+    class CaptureLLM:
+        def with_structured_output(self, schema):
+            return self
+        async def ainvoke(self, prompt):
+            captured_prompt.append(prompt)
+            return SynthesizeOutput(
+                tradition_cards=[TraditionCard(
+                    tradition="S", author="A", quote="q", citation="c",
+                    analysis="a", source_passage="sp",
+                )],
+                action_steps=[ActionStep(n="01", title="t", body="b")],
+            )
+
+    synthesize = create_synthesize_node(CaptureLLM())
+    doc = Document(page_content="X" * 2000, metadata={
+        "tradition": "stoic", "author": "A", "source": "B",
+        "era": "?", "ingested_at": "2026-06-06T00:00:00+00:00",
+    })
+    await synthesize(_make_state(reranked_docs=[doc]))
+    assert "X" * 501 not in captured_prompt[0]
+    assert "X" * 499 in captured_prompt[0]
