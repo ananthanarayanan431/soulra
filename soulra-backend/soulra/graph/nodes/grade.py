@@ -1,8 +1,9 @@
-# app/graph/nodes/grade.py
 import asyncio
 from math import ceil
+
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
+
 from soulra.core.logging import logger
 from soulra.graph.state import SoulraState
 
@@ -33,7 +34,7 @@ def create_grade_node(llm: ChatOpenAI):
             return GradeOutput(score="no")
 
     async def grade(state: SoulraState) -> dict:
-        docs = state["retrieved_docs"]
+        docs = state["reranked_docs"]
         if not docs:
             return {"grade_result": "not_relevant"}
 
@@ -53,6 +54,17 @@ def create_grade_node(llm: ChatOpenAI):
         sampled_count = len(sample)
         threshold = max(1, ceil(sampled_count / 2))
         grade_result = "relevant" if relevant_count >= threshold else "not_relevant"
+
+        logger.info(
+            "selection_recall",
+            total_retrieved=len(state["retrieved_docs"]),
+            total_reranked=len(docs),
+            graded_sample=len(sample),
+            relevant_count=relevant_count,
+            grade_result=grade_result,
+            chunk_ids=[d.metadata.get("id", "?") for d in sample],
+        )
+
         return {"grade_result": grade_result}
 
     return grade

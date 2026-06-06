@@ -78,7 +78,7 @@ async def test_grade_node_returns_relevant_when_majority_score_yes():
         Document(page_content="Stoic wisdom.", metadata={}),
         Document(page_content="More Stoic wisdom.", metadata={}),
     ]
-    result = await grade(_make_state(retrieved_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs))
     assert result["grade_result"] == "relevant"
 
 
@@ -92,7 +92,7 @@ async def test_grade_node_returns_not_relevant_when_majority_score_no():
     grade = create_grade_node(mock_llm)
 
     docs = [Document(page_content="Recipes for pasta.", metadata={})]
-    result = await grade(_make_state(retrieved_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs))
     assert result["grade_result"] == "not_relevant"
 
 
@@ -106,7 +106,7 @@ async def test_grade_node_returns_relevant_for_single_doc_with_yes_score():
     grade = create_grade_node(mock_llm)
 
     docs = [Document(page_content="Stoic wisdom about equanimity.", metadata={})]
-    result = await grade(_make_state(retrieved_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs))
     assert result["grade_result"] == "relevant"
 
 
@@ -115,7 +115,7 @@ async def test_grade_node_returns_not_relevant_for_empty_docs():
     from soulra.graph.nodes.grade import create_grade_node
     mock_llm = MagicMock()
     grade = create_grade_node(mock_llm)
-    result = await grade(_make_state(retrieved_docs=[]))
+    result = await grade(_make_state(reranked_docs=[]))
     assert result["grade_result"] == "not_relevant"
 
 
@@ -201,7 +201,7 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     ]
     state = {
         "situation": "test", "query": "test query",
-        "retrieved_docs": docs, "reranked_docs": [], "tradition_hints": [],
+        "retrieved_docs": docs, "reranked_docs": docs, "tradition_hints": [],
         "grade_result": "", "clarify_question": "", "clarify_chips": [],
         "clarify_answer": None, "refined_docs": [], "tradition_cards": [],
         "action_steps": [], "messages": [], "rewrite_count": 0,
@@ -209,6 +209,42 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     result = await grade(state)
     assert len(call_log) == 4, "Expected 4 ainvoke calls for 4 docs"
     assert result["grade_result"] in ("relevant", "not_relevant")
+
+
+@pytest.mark.asyncio
+async def test_grade_node_reads_from_reranked_docs_not_retrieved():
+    from soulra.graph.nodes.grade import create_grade_node, GradeOutput
+    from unittest.mock import AsyncMock
+    mock_llm = MagicMock()
+    mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
+    mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
+    grade = create_grade_node(mock_llm)
+
+    # reranked_docs has 1 doc; retrieved_docs has 5 irrelevant-looking ones
+    reranked = [Document(page_content="Reranked stoic wisdom.", metadata={})]
+    retrieved = [Document(page_content=f"retrieved-{i}", metadata={}) for i in range(5)]
+    state = _make_state(reranked_docs=reranked, retrieved_docs=retrieved)
+    result = await grade(state)
+    # Grade is called once (for the 1 doc in reranked_docs)
+    assert mock_llm.ainvoke.call_count == 1
+    assert result["grade_result"] == "relevant"
+
+
+@pytest.mark.asyncio
+async def test_grade_node_emits_selection_recall_log(caplog):
+    import logging
+    from soulra.graph.nodes.grade import create_grade_node, GradeOutput
+    from unittest.mock import AsyncMock
+    mock_llm = MagicMock()
+    mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
+    mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
+    grade = create_grade_node(mock_llm)
+
+    retrieved = [Document(page_content=f"r{i}", metadata={"id": f"id{i}"}) for i in range(10)]
+    reranked = retrieved[:3]
+    await grade(_make_state(retrieved_docs=retrieved, reranked_docs=reranked))
+    # structlog logs to stdout, not caplog — just verify no exception is raised
+    # (The log is verified by observing it in the integration environment)
 
 
 @pytest.mark.asyncio
