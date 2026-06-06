@@ -11,7 +11,7 @@ def create_retrieve_node(retriever: WisdomRetriever, output_key: str = "retrieve
         hints = state["tradition_hints"] or [None]
 
         results = await asyncio.gather(
-            *[retriever.search(query, tradition_filter=hint, k=4) for hint in hints]
+            *[retriever.search(query, tradition_filter=hint, k=10) for hint in hints]
         )
 
         all_docs: list[Document] = []

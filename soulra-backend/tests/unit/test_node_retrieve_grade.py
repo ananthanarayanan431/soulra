@@ -209,3 +209,16 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     result = await grade(state)
     assert len(call_log) == 4, "Expected 4 ainvoke calls for 4 docs"
     assert result["grade_result"] in ("relevant", "not_relevant")
+
+
+@pytest.mark.asyncio
+async def test_retrieve_node_requests_k10_per_tradition(mock_vectorstore):
+    from soulra.graph.nodes.retrieve import create_retrieve_node
+    from soulra.services.retrieval.retriever import WisdomRetriever
+    retriever = WisdomRetriever(mock_vectorstore)
+    retrieve = create_retrieve_node(retriever)
+    await retrieve(_make_state())
+    # Each call to asimilarity_search must request k=10
+    for call in mock_vectorstore.asimilarity_search.call_args_list:
+        assert call.kwargs.get("k", call.args[1] if len(call.args) > 1 else None) == 10, \
+            f"Expected k=10 but got: {call}"
