@@ -1,6 +1,6 @@
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -197,3 +197,18 @@ async def update_tradition(slug: str, body: TraditionUpdate, db: AsyncSession = 
         selected=row.user_selected,
         description=row.description,
     ))
+
+
+@router.delete(
+    "/traditions/{slug}",
+    status_code=204,
+    summary="Delete a wisdom tradition",
+    description="Permanently removes a tradition by slug. Returns 404 if the slug doesn't exist, otherwise 204 No Content.",
+)
+async def delete_tradition(slug: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(Tradition, slug)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Tradition not found")
+    await db.delete(row)
+    await db.commit()
+    return Response(status_code=204)
