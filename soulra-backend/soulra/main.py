@@ -28,72 +28,73 @@ async def lifespan(_app: FastAPI):
 
     import cohere as cohere_sdk
     from soulra.dependencies import set_cohere_client
-    set_cohere_client(cohere_sdk.AsyncClient(api_key=settings.cohere_api_key))
+    async with cohere_sdk.AsyncClient(api_key=settings.cohere_api_key) as _cohere:
+        set_cohere_client(_cohere)
 
-    # Run Alembic migrations (async — does not block the event loop)
-    _fail_fast = os.getenv("MIGRATION_FAIL_FAST", "false").lower() == "true"
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "alembic", "upgrade", "head",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd="/app",
-        )
-        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
-        if proc.returncode and proc.returncode != 0:
-            logger.error("alembic_failed", returncode=proc.returncode, stderr=stderr)
-            if _fail_fast:
-                sys.exit(1)
-    except Exception as e:
-        logger.warning("alembic_skipped", reason=str(e))
-
-    # Build LangGraph graph with Postgres checkpointer
-    from soulra.dependencies import set_vectorstore, set_retriever
-    try:
-        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-        from langchain_postgres import PGVector
-        from soulra.dependencies import (
-            get_embeddings,
-            get_fast_llm,
-            get_smart_llm,
-            get_cohere_client,
-        )
-        from soulra.services.retrieval.retriever import WisdomRetriever
-        from soulra.graph.builder import build_graph
-
-        # Initialise PGVector and retriever here so they are bound to the
-        # current event loop and not held in lru_cache across reloads.
-        vs = PGVector(
-            embeddings=get_embeddings(),
-            collection_name="wisdom_passages",
-            connection=settings.database_url,
-        )
-        retriever = WisdomRetriever(vectorstore=vs)
-        set_vectorstore(vs)
-        set_retriever(retriever)
-
-        # AsyncPostgresSaver needs a sync-style postgres URL (no +asyncpg)
-        sync_db_url = settings.database_url.replace("+asyncpg", "")
-        async with AsyncPostgresSaver.from_conn_string(sync_db_url) as checkpointer:
-            graph = build_graph(
-                retriever=retriever,
-                fast_llm=get_fast_llm(),
-                smart_llm=get_smart_llm(),
-                checkpointer=checkpointer,
-                cohere_client=get_cohere_client(),
+        # Run Alembic migrations (async — does not block the event loop)
+        _fail_fast = os.getenv("MIGRATION_FAIL_FAST", "false").lower() == "true"
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "alembic", "upgrade", "head",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd="/app",
             )
-            set_graph(graph)
-            logger.info("graph_ready")
-            yield
-    except Exception as e:
-        logger.warning("graph_unavailable", reason=str(e))
-        yield  # app starts without graph (WS returns SERVICE_UNAVAILABLE)
-    finally:
-        set_graph(None)
-        set_vectorstore(None)
-        set_retriever(None)
-        await job_cache.close_redis()
-        logger.info("shutdown")
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
+            if proc.returncode and proc.returncode != 0:
+                logger.error("alembic_failed", returncode=proc.returncode, stderr=stderr)
+                if _fail_fast:
+                    sys.exit(1)
+        except Exception as e:
+            logger.warning("alembic_skipped", reason=str(e))
+
+        # Build LangGraph graph with Postgres checkpointer
+        from soulra.dependencies import set_vectorstore, set_retriever
+        try:
+            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+            from langchain_postgres import PGVector
+            from soulra.dependencies import (
+                get_embeddings,
+                get_fast_llm,
+                get_smart_llm,
+                get_cohere_client,
+            )
+            from soulra.services.retrieval.retriever import WisdomRetriever
+            from soulra.graph.builder import build_graph
+
+            # Initialise PGVector and retriever here so they are bound to the
+            # current event loop and not held in lru_cache across reloads.
+            vs = PGVector(
+                embeddings=get_embeddings(),
+                collection_name="wisdom_passages",
+                connection=settings.database_url,
+            )
+            retriever = WisdomRetriever(vectorstore=vs)
+            set_vectorstore(vs)
+            set_retriever(retriever)
+
+            # AsyncPostgresSaver needs a sync-style postgres URL (no +asyncpg)
+            sync_db_url = settings.database_url.replace("+asyncpg", "")
+            async with AsyncPostgresSaver.from_conn_string(sync_db_url) as checkpointer:
+                graph = build_graph(
+                    retriever=retriever,
+                    fast_llm=get_fast_llm(),
+                    smart_llm=get_smart_llm(),
+                    checkpointer=checkpointer,
+                    cohere_client=get_cohere_client(),
+                )
+                set_graph(graph)
+                logger.info("graph_ready")
+                yield
+        except Exception as e:
+            logger.warning("graph_unavailable", reason=str(e))
+            yield  # app starts without graph (WS returns SERVICE_UNAVAILABLE)
+        finally:
+            set_graph(None)
+            set_vectorstore(None)
+            set_retriever(None)
+            await job_cache.close_redis()
+            logger.info("shutdown")
 
 
 app = FastAPI(title="Soulra Backend", version="0.1.0", lifespan=lifespan)
