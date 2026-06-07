@@ -1,13 +1,13 @@
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from soulra.database import get_db
 from soulra.models.tradition import Tradition
 from soulra.schemas.responses import SuccessResponse
-from soulra.schemas.tradition import CreateTradition, PreferencesUpdate, TraditionOut, TraditionsResponse
+from soulra.schemas.tradition import CreateTradition, PreferencesUpdate, TraditionOut, TraditionsResponse, TraditionUpdate
 
 
 def _slugify(name: str) -> str:
@@ -68,6 +68,7 @@ async def list_traditions(
             sources=c["sources"],
             passages=c["passages"],
             selected=t.user_selected,
+            description=t.description,
         ))
 
     return SuccessResponse(data=TraditionsResponse(
@@ -117,6 +118,7 @@ async def create_tradition(body: CreateTradition, db: AsyncSession = Depends(get
         sources=0,
         passages=0,
         selected=False,
+        description=tradition.description,
     ))
 
 
@@ -135,3 +137,78 @@ async def update_preferences(
     for t in rows:
         t.user_selected = t.slug in selected_set
     await db.commit()
+
+
+@router.get(
+    "/traditions/{slug}",
+    response_model=SuccessResponse[TraditionOut],
+    summary="Get a wisdom tradition",
+    description="Fetches a single tradition by slug, including live passage/source counts. Returns 404 if the slug doesn't exist.",
+)
+async def get_tradition(slug: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(Tradition, slug)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Tradition not found")
+    counts = await _passage_counts(db)
+    c = counts.get(row.slug, {"passages": 0, "sources": 0})
+    return SuccessResponse(data=TraditionOut(
+        slug=row.slug,
+        name=row.name,
+        origin=row.origin,
+        era=row.era,
+        sources=c["sources"],
+        passages=c["passages"],
+        selected=row.user_selected,
+        description=row.description,
+    ))
+
+
+@router.put(
+    "/traditions/{slug}",
+    response_model=SuccessResponse[TraditionOut],
+    summary="Update a wisdom tradition",
+    description="Partially updates a tradition's name, origin, era, or description — only the provided fields change. The slug is immutable. Returns 404 if the slug doesn't exist.",
+)
+async def update_tradition(slug: str, body: TraditionUpdate, db: AsyncSession = Depends(get_db)):
+    row = await db.get(Tradition, slug)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Tradition not found")
+
+    if body.name is not None:
+        row.name = body.name
+    if body.origin is not None:
+        row.origin = body.origin
+    if body.era is not None:
+        row.era = body.era
+    if body.description is not None:
+        row.description = body.description
+    await db.commit()
+    await db.refresh(row)
+
+    counts = await _passage_counts(db)
+    c = counts.get(row.slug, {"passages": 0, "sources": 0})
+    return SuccessResponse(data=TraditionOut(
+        slug=row.slug,
+        name=row.name,
+        origin=row.origin,
+        era=row.era,
+        sources=c["sources"],
+        passages=c["passages"],
+        selected=row.user_selected,
+        description=row.description,
+    ))
+
+
+@router.delete(
+    "/traditions/{slug}",
+    status_code=204,
+    summary="Delete a wisdom tradition",
+    description="Permanently removes a tradition by slug. Returns 404 if the slug doesn't exist, otherwise 204 No Content.",
+)
+async def delete_tradition(slug: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(Tradition, slug)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Tradition not found")
+    await db.delete(row)
+    await db.commit()
+    return Response(status_code=204)

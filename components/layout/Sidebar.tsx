@@ -27,7 +27,7 @@ export function Sidebar() {
   return (
     <aside className="w-[220px] border-r border-line bg-paper-alt flex flex-col flex-shrink-0">
       <div className="px-4 py-5 pb-[18px]">
-        <Link href="/home">
+        <Link href="/">
           <Wordmark size={18} />
         </Link>
       </div>

@@ -9,6 +9,7 @@ class TraditionOut(BaseModel):
     sources: int
     passages: int
     selected: bool
+    description: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -28,4 +29,11 @@ class CreateTradition(BaseModel):
     origin: str
     era: str
     slug: str | None = None
+    description: str | None = None
+
+
+class TraditionUpdate(BaseModel):
+    name: str | None = None
+    origin: str | None = None
+    era: str | None = None
     description: str | None = None

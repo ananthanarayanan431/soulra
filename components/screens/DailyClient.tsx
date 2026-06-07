@@ -2,11 +2,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
-import { completeDay, saveReflection } from "@/lib/api";
+import { completeDay, saveReflection, saveJournalEntry } from "@/lib/api";
 
 interface Props {
   arcId: string;
   dayNumber: number;
+  dayLabel: string;
+  isToday: boolean;
   morningQuote: string;
   morningAuthor: string;
   morningCitation: string;
@@ -19,6 +21,8 @@ interface Props {
 export function DailyClient({
   arcId,
   dayNumber,
+  dayLabel,
+  isToday,
   morningQuote,
   morningAuthor,
   morningCitation,
@@ -31,6 +35,7 @@ export function DailyClient({
   const [carried, setCarried] = useState(initialCompleted);
   const [reflection, setReflection] = useState(initialReflection);
   const [saved, setSaved] = useState(false);
+  const [journalState, setJournalState] = useState<"idle" | "saving" | "saved">("idle");
   const [, startTransition] = useTransition();
 
   function handleCarry() {
@@ -39,6 +44,19 @@ export function DailyClient({
       await completeDay(arcId, dayNumber);
       router.refresh();
     });
+  }
+
+  async function handleSaveToJournal() {
+    if (journalState !== "idle") return;
+    setJournalState("saving");
+    const entry = await saveJournalEntry({
+      text: morningQuote.slice(0, 120),
+      quote: morningQuote,
+      author: morningAuthor,
+      citation: morningCitation,
+      analysis: morningAnalysis,
+    });
+    setJournalState(entry ? "saved" : "idle");
   }
 
   function handleSaveReflection() {
@@ -55,7 +73,7 @@ export function DailyClient({
       {/* morning lesson */}
       <div className="border-[1.5px] border-ink rounded-xl p-6 bg-paper">
         <div className="font-mono text-[10px] text-muted uppercase tracking-widest mb-2">
-          morning &middot; today&rsquo;s practice
+          morning &middot; {isToday ? "today's practice" : `${dayLabel.toLowerCase()}'s practice`}
         </div>
         <div className="font-serif text-[24px] leading-[1.35] italic">
           &ldquo;{morningQuote}&rdquo;
@@ -68,10 +86,14 @@ export function DailyClient({
         </div>
         <div className="flex gap-2 mt-5">
           <Button small primary onClick={handleCarry} disabled={carried}>
-            {carried ? "Carrying this today ✓" : "I’ll carry this today"}
+            {carried
+              ? (isToday ? "Carrying this today ✓" : "Carried ✓")
+              : (isToday ? "I’ll carry this today" : "I’ll carry this")}
           </Button>
           <span className="flex-1" />
-          <Button small>&#9671; Save</Button>
+          <Button small onClick={handleSaveToJournal} disabled={journalState !== "idle"}>
+            {journalState === "saving" ? "Saving…" : journalState === "saved" ? "◇ Saved ✓" : "◇ Save"}
+          </Button>
         </div>
       </div>
 

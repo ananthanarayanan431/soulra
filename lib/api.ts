@@ -53,6 +53,7 @@ export interface Tradition {
   sources: number;
   passages: number;
   selected: boolean;
+  description?: string;
 }
 
 export interface TraditionsData {
@@ -92,13 +93,15 @@ export async function listEras(): Promise<string[]> {
   }
 }
 
-export async function createTradition(body: {
+export interface TraditionInput {
   name: string;
   origin: string;
   era: string;
   slug?: string;
   description?: string;
-}): Promise<Tradition> {
+}
+
+export async function createTradition(body: TraditionInput): Promise<Tradition> {
   const res = await fetch(`${BASE}/api/v1/traditions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -106,10 +109,32 @@ export async function createTradition(body: {
   });
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    throw new Error(json?.detail ?? `HTTP ${res.status}`);
+    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
   }
   const json = await res.json();
   return json.data as Tradition;
+}
+
+export async function updateTradition(slug: string, body: Partial<TraditionInput>): Promise<Tradition> {
+  const res = await fetch(`${BASE}/api/v1/traditions/${encodeURIComponent(slug)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as Tradition;
+}
+
+export async function deleteTradition(slug: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/v1/traditions/${encodeURIComponent(slug)}`, { method: "DELETE" });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
+  }
 }
 
 export interface PracticeDay {

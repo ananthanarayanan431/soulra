@@ -2,12 +2,13 @@ import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from soulra.database import Base, get_db
 from soulra.models.conversation import Conversation, ActionStep  # noqa: F401
 from soulra.models.ingest_job import IngestJob  # noqa: F401
+from soulra.models.tradition import Tradition  # noqa: F401
 
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
