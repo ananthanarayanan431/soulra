@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
-import { completeDay, saveReflection } from "@/lib/api";
+import { completeDay, saveReflection, saveJournalEntry } from "@/lib/api";
 
 interface Props {
   arcId: string;
@@ -31,6 +31,7 @@ export function DailyClient({
   const [carried, setCarried] = useState(initialCompleted);
   const [reflection, setReflection] = useState(initialReflection);
   const [saved, setSaved] = useState(false);
+  const [journalState, setJournalState] = useState<"idle" | "saving" | "saved">("idle");
   const [, startTransition] = useTransition();
 
   function handleCarry() {
@@ -39,6 +40,23 @@ export function DailyClient({
       await completeDay(arcId, dayNumber);
       router.refresh();
     });
+  }
+
+  async function handleSaveToJournal() {
+    if (journalState !== "idle") return;
+    setJournalState("saving");
+    try {
+      await saveJournalEntry({
+        text: morningQuote.slice(0, 120),
+        quote: morningQuote,
+        author: morningAuthor,
+        citation: morningCitation,
+        analysis: morningAnalysis,
+      });
+      setJournalState("saved");
+    } catch {
+      setJournalState("idle");
+    }
   }
 
   function handleSaveReflection() {
@@ -71,7 +89,9 @@ export function DailyClient({
             {carried ? "Carrying this today ✓" : "I’ll carry this today"}
           </Button>
           <span className="flex-1" />
-          <Button small>&#9671; Save</Button>
+          <Button small onClick={handleSaveToJournal} disabled={journalState !== "idle"}>
+            {journalState === "saving" ? "Saving…" : journalState === "saved" ? "◇ Saved ✓" : "◇ Save"}
+          </Button>
         </div>
       </div>
 
