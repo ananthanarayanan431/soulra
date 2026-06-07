@@ -127,7 +127,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
         name,
         origin,
         era,
-        description: editForm.description.trim() || undefined,
+        description: editForm.description.trim(),
       };
       const updated = await updateTradition(slug, input);
       setTraditions(prev => prev.map(t => (t.slug === slug ? updated : t)));
