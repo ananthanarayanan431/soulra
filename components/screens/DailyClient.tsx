@@ -49,18 +49,14 @@ export function DailyClient({
   async function handleSaveToJournal() {
     if (journalState !== "idle") return;
     setJournalState("saving");
-    try {
-      await saveJournalEntry({
-        text: morningQuote.slice(0, 120),
-        quote: morningQuote,
-        author: morningAuthor,
-        citation: morningCitation,
-        analysis: morningAnalysis,
-      });
-      setJournalState("saved");
-    } catch {
-      setJournalState("idle");
-    }
+    const entry = await saveJournalEntry({
+      text: morningQuote.slice(0, 120),
+      quote: morningQuote,
+      author: morningAuthor,
+      citation: morningCitation,
+      analysis: morningAnalysis,
+    });
+    setJournalState(entry ? "saved" : "idle");
   }
 
   function handleSaveReflection() {

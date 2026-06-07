@@ -88,6 +88,7 @@ function FaqItem({
     <div className="border-t border-line-soft first:border-t-0">
       <button
         onClick={onToggle}
+        aria-expanded={open}
         className="w-full flex items-center justify-between gap-6 py-7 text-left"
       >
         <span className="font-serif text-[21px] leading-snug">{q}</span>

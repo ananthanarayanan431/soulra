@@ -49,6 +49,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
   const [editError, setEditError] = useState<string | null>(null);
 
   const [confirmingSlug, setConfirmingSlug] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ slug: string; message: string } | null>(null);
   const [infoSlug, setInfoSlug] = useState<string | null>(null);
 
   const eras = ["all", ...Array.from(new Set(traditions.map(t => t.era))).sort()];
@@ -148,13 +149,15 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
       return;
     }
     setConfirmingSlug(null);
+    setDeleteError(null);
     void performDelete(slug);
   }
 
   async function performDelete(slug: string) {
     try {
       await deleteTradition(slug);
-    } catch {
+    } catch (err) {
+      setDeleteError({ slug, message: err instanceof Error ? err.message : "Failed to delete tradition" });
       return;
     }
     setTraditions(prev => prev.filter(t => t.slug !== slug));
@@ -428,6 +431,9 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
                     )}
 
                     <div className="absolute bottom-3 right-4 flex items-center gap-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {deleteError?.slug === t.slug && (
+                        <span className="font-mono text-[9px] text-red-600">{deleteError.message}</span>
+                      )}
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); startEditing(t); }}

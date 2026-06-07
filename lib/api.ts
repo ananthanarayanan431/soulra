@@ -109,7 +109,7 @@ export async function createTradition(body: TraditionInput): Promise<Tradition> 
   });
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    throw new Error(json?.detail ?? `HTTP ${res.status}`);
+    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
   }
   const json = await res.json();
   return json.data as Tradition;
@@ -123,7 +123,7 @@ export async function updateTradition(slug: string, body: Partial<TraditionInput
   });
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    throw new Error(json?.detail ?? `HTTP ${res.status}`);
+    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
   }
   const json = await res.json();
   return json.data as Tradition;
@@ -133,7 +133,7 @@ export async function deleteTradition(slug: string): Promise<void> {
   const res = await fetch(`${BASE}/api/v1/traditions/${encodeURIComponent(slug)}`, { method: "DELETE" });
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    throw new Error(json?.detail ?? `HTTP ${res.status}`);
+    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
   }
 }
 
