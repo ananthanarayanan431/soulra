@@ -28,7 +28,7 @@ def create_grade_node(llm: ChatOpenAI):
 
     async def _safe_grade(prompt: str) -> GradeOutput:
         try:
-            return await structured_llm.ainvoke(prompt)
+            return await structured_llm.ainvoke(prompt)  # type: ignore[return-value]
         except Exception as exc:
             logger.error("grade_llm_failed", error=str(exc))
             return GradeOutput(score="no")

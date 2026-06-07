@@ -164,8 +164,6 @@ async def test_retrieve_node_searches_traditions_concurrently():
     assert len(result["retrieved_docs"]) == 3
 
     # Concurrent: all three "start" events should appear before any "end" event
-    starts = [e for e in call_order if e[0] == "start"]
-    ends = [e for e in call_order if e[0] == "end"]
     # If sequential, we'd see start-end-start-end-start-end
     # If concurrent, we'd see start-start-start-end-end-end
     # The first "end" must come after all "start"s
@@ -180,7 +178,6 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     """grade node must use ainvoke (not invoke) and gather calls concurrently."""
     from soulra.graph.nodes.grade import create_grade_node
     from langchain_core.documents import Document
-    from unittest.mock import AsyncMock
 
     call_log = []
 
@@ -236,7 +233,6 @@ async def test_grade_node_reads_from_reranked_docs_not_retrieved():
 
 @pytest.mark.asyncio
 async def test_grade_node_emits_selection_recall_log(caplog):
-    import logging
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
     from unittest.mock import AsyncMock
     mock_llm = MagicMock()

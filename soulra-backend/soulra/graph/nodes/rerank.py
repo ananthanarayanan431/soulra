@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from langchain_core.documents import Document
 from soulra.core.logging import logger
@@ -49,7 +49,7 @@ def _u_shape(docs: list[Document]) -> list[Document]:
 
 def create_rerank_node(cohere_client: "cohere.AsyncClient", input_key: str = "retrieved_docs", output_key: str = "reranked_docs"):
     async def rerank(state: SoulraState) -> dict:
-        docs: list[Document] = state.get(input_key) or []
+        docs = cast(list[Document], state.get(input_key) or [])
         if not docs:
             return {output_key: []}
 

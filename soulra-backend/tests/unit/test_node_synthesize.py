@@ -122,7 +122,7 @@ async def test_synthesize_reads_from_reranked_docs():
         "tradition": "stoic", "author": "Marcus", "source": "Med",
         "era": "170AD", "ingested_at": "2026-06-06T00:00:00+00:00",
     })
-    result = await synthesize(_make_state(reranked_docs=[reranked_doc]))
+    await synthesize(_make_state(reranked_docs=[reranked_doc]))
     assert "RERANKED wisdom." in captured_prompt[0], \
         "synthesize must read from reranked_docs"
 

@@ -68,7 +68,7 @@ def create_synthesize_node(llm: ChatOpenAI):
             clarify_answer=state.get("clarify_answer") or "not provided",
             passages=passages,
         )
-        result: SynthesizeOutput = await structured_llm.ainvoke(prompt)
+        result: SynthesizeOutput = await structured_llm.ainvoke(prompt)  # type: ignore[assignment]
         return {
             "tradition_cards": [c.model_dump() for c in result.tradition_cards],
             "action_steps": [s.model_dump() for s in result.action_steps],
