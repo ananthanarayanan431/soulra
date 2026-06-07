@@ -33,20 +33,31 @@ async def lifespan(_app: FastAPI):
 
         # Run Alembic migrations (async — does not block the event loop)
         _fail_fast = os.getenv("MIGRATION_FAIL_FAST", "false").lower() == "true"
+        _proc: asyncio.subprocess.Process | None = None
         try:
-            proc = await asyncio.create_subprocess_exec(
+            _proc = await asyncio.create_subprocess_exec(
                 "alembic", "upgrade", "head",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd="/app",
             )
-            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
-            if proc.returncode and proc.returncode != 0:
-                logger.error("alembic_failed", returncode=proc.returncode, stderr=stderr)
+            _, stderr = await asyncio.wait_for(_proc.communicate(), timeout=60)
+            if _proc.returncode and _proc.returncode != 0:
+                logger.error("alembic_failed", returncode=_proc.returncode, stderr=stderr)
                 if _fail_fast:
                     sys.exit(1)
+        except asyncio.TimeoutError:
+            if _proc is not None:
+                _proc.kill()
+                await _proc.wait()
+            logger.error("alembic_timeout")
+            if _fail_fast:
+                sys.exit(1)
         except Exception as e:
-            logger.warning("alembic_skipped", reason=str(e))
+            if _proc is not None:
+                _proc.kill()
+                await _proc.wait()
+            logger.warning("alembic_skipped", reason=type(e).__name__)
 
         # Build LangGraph graph with Postgres checkpointer
         from soulra.dependencies import set_vectorstore, set_retriever
@@ -87,7 +98,7 @@ async def lifespan(_app: FastAPI):
                 logger.info("graph_ready")
                 yield
         except Exception as e:
-            logger.warning("graph_unavailable", reason=str(e))
+            logger.warning("graph_unavailable", reason=type(e).__name__)
             yield  # app starts without graph (WS returns SERVICE_UNAVAILABLE)
         finally:
             set_graph(None)

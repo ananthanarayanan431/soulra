@@ -1,5 +1,4 @@
 # tests/unit/test_graph_builder.py
-import pytest
 from unittest.mock import MagicMock
 
 
