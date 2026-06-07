@@ -9,6 +9,7 @@ class TraditionOut(BaseModel):
     sources: int
     passages: int
     selected: bool
+    description: str | None = None
 
     model_config = {"from_attributes": True}
 

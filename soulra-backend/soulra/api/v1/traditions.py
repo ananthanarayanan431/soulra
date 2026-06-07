@@ -68,6 +68,7 @@ async def list_traditions(
             sources=c["sources"],
             passages=c["passages"],
             selected=t.user_selected,
+            description=t.description,
         ))
 
     return SuccessResponse(data=TraditionsResponse(
@@ -117,6 +118,7 @@ async def create_tradition(body: CreateTradition, db: AsyncSession = Depends(get
         sources=0,
         passages=0,
         selected=False,
+        description=tradition.description,
     ))
 
 
@@ -135,3 +137,27 @@ async def update_preferences(
     for t in rows:
         t.user_selected = t.slug in selected_set
     await db.commit()
+
+
+@router.get(
+    "/traditions/{slug}",
+    response_model=SuccessResponse[TraditionOut],
+    summary="Get a wisdom tradition",
+    description="Fetches a single tradition by slug, including live passage/source counts. Returns 404 if the slug doesn't exist.",
+)
+async def get_tradition(slug: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(Tradition, slug)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Tradition not found")
+    counts = await _passage_counts(db)
+    c = counts.get(row.slug, {"passages": 0, "sources": 0})
+    return SuccessResponse(data=TraditionOut(
+        slug=row.slug,
+        name=row.name,
+        origin=row.origin,
+        era=row.era,
+        sources=c["sources"],
+        passages=c["passages"],
+        selected=row.user_selected,
+        description=row.description,
+    ))
