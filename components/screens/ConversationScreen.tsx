@@ -1,23 +1,25 @@
 "use client";
-import { useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout";
 import { Button, Input } from "@/components/ui";
 import { TraditionCard } from "@/components/conversation/TraditionCard";
 import { ActionPlan } from "@/components/conversation/ActionPlan";
 import { ClarifyingPause } from "@/components/conversation/ClarifyingPause";
 import { useSoulraChat } from "@/hooks/useSoulraChat";
+import { saveJournalEntry } from "@/lib/api";
+import type { Conversation } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
-  intake:          "Understanding your situation…",
-  retrieve:        "Searching wisdom traditions…",
-  rerank:          "Refining passages…",
-  grade_docs:      "Evaluating relevance…",
-  rewrite_query:   "Deepening the search…",
-  clarify:         "Preparing a question…",
+  intake:           "Understanding your situation…",
+  retrieve:         "Searching wisdom traditions…",
+  rerank:           "Refining passages…",
+  grade_docs:       "Evaluating relevance…",
+  rewrite_query:    "Deepening the search…",
+  clarify:          "Preparing a question…",
   retrieve_refined: "Searching further…",
-  rerank_refined:  "Refining results…",
-  synthesize:      "Drawing from the traditions…",
+  rerank_refined:   "Refining results…",
+  synthesize:       "Drawing from the traditions…",
 };
 
 function ThinkingIndicator({ node }: { node: string }) {
@@ -27,9 +29,7 @@ function ThinkingIndicator({ node }: { node: string }) {
         S
       </div>
       <div className="flex-1 pt-1">
-        <div className="font-mono text-[10px] text-muted uppercase tracking-wide mb-1.5">
-          Soulra
-        </div>
+        <div className="font-mono text-[10px] text-muted uppercase tracking-wide mb-1.5">Soulra</div>
         <div className="font-serif text-[17px] text-muted italic">
           {STATUS_LABELS[node] ?? "Consulting the traditions…"}
         </div>
@@ -46,14 +46,106 @@ function UserBubble({ text }: { text: string }) {
   );
 }
 
-export function ConversationScreen() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const situation = searchParams.get("q") ?? "";
+interface CompletedViewProps {
+  situation: string;
+  traditionCards: { tradition: string; author: string; quote: string; citation: string; analysis: string }[];
+  actionSteps: { n: string; title: string; body: string }[];
+  conversationId: string | null;
+}
 
+function CompletedView({ situation, traditionCards, actionSteps, conversationId }: CompletedViewProps) {
+  async function handleSaveToJournal() {
+    for (const card of traditionCards) {
+      await saveJournalEntry({
+        text: card.quote.slice(0, 120),
+        quote: card.quote,
+        tradition: card.tradition,
+        author: card.author,
+        citation: card.citation,
+        analysis: card.analysis,
+        conversation_id: conversationId ?? undefined,
+      });
+    }
+  }
+  return (
+    <div className="flex h-screen bg-paper overflow-hidden">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-9 py-4 border-b border-line flex items-center justify-between flex-shrink-0">
+          <div>
+            <div className="font-serif text-[16px] font-medium truncate max-w-[520px]">
+              &ldquo;{situation.slice(0, 70)}{situation.length > 70 ? "…" : ""}&rdquo;
+            </div>
+            <div className="font-mono text-[10px] text-muted mt-0.5">
+              {traditionCards.length} tradition{traditionCards.length !== 1 ? "s" : ""} consulted
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto px-9 py-8 flex flex-col gap-7 max-w-[820px] self-center w-full">
+          <UserBubble text={situation} />
+
+          {traditionCards.length > 0 && (
+            <div className="flex gap-3.5">
+              <div className="w-8 flex-shrink-0" />
+              <div className="flex-1 flex flex-col gap-4">
+                <p className="text-[14px] leading-[1.7] max-w-[640px]">
+                  Here are perspectives from{" "}
+                  {traditionCards.length} tradition{traditionCards.length !== 1 ? "s" : ""},
+                  each rooted in its own lineage. They don&rsquo;t say the same thing — and that is the point.
+                </p>
+
+                {traditionCards.map((t, i) => (
+                  <TraditionCard
+                    key={i}
+                    index={i + 1}
+                    total={traditionCards.length}
+                    tradition={t.tradition}
+                    author={t.author}
+                    quote={t.quote}
+                    explanation={t.analysis}
+                    citationBook={t.citation}
+                    citationChapter=""
+                    initiallyExpanded={i === 0}
+                  />
+                ))}
+
+                {actionSteps.length > 0 && (
+                  <ActionPlan
+                    steps={actionSteps.map(s => ({
+                      number: s.n,
+                      title: s.title,
+                      body: s.body,
+                    }))}
+                    onSaveToJournal={handleSaveToJournal}
+                  />
+                )}
+
+                <div className="flex justify-between items-center font-mono text-[10px] text-muted pt-1">
+                  <span>
+                    {traditionCards.length} sources &middot; grounded response
+                  </span>
+                  <span>was this grounded? &middot; &#128077; &middot; &#128078;</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface Props {
+  situation: string | null;
+  loadedConversation: Conversation | null;
+}
+
+export function ConversationScreen({ situation, loadedConversation }: Props) {
+  const router = useRouter();
   const [reply, setReply] = useState("");
 
-  const { state, sendClarification } = useSoulraChat(situation);
+  const { state, sendClarification } = useSoulraChat(situation ?? "");
   const {
     phase,
     statusNode,
@@ -63,7 +155,51 @@ export function ConversationScreen() {
     traditionCards,
     actionSteps,
     error,
+    conversationId,
   } = state;
+
+  // After WS completes, replace URL with ?id= so refresh loads from API
+  useEffect(() => {
+    if (phase === "done" && conversationId) {
+      router.replace(`/chat?id=${conversationId}`);
+    }
+  }, [phase, conversationId, router]);
+
+  // Hard-refresh with ?id= — render the pre-fetched completed conversation
+  if (loadedConversation) {
+    return (
+      <CompletedView
+        situation={loadedConversation.situation}
+        traditionCards={loadedConversation.tradition_cards.map(c => ({
+          tradition: c.tradition,
+          author: c.author,
+          quote: c.quote,
+          citation: c.citation,
+          analysis: c.analysis,
+        }))}
+        actionSteps={loadedConversation.action_steps.map(s => ({
+          n: String(s.step_number),
+          title: s.title,
+          body: s.body,
+        }))}
+        conversationId={loadedConversation.id}
+      />
+    );
+  }
+
+  async function handleSaveToJournal() {
+    for (const card of traditionCards) {
+      await saveJournalEntry({
+        text: card.quote.slice(0, 120),
+        quote: card.quote,
+        tradition: card.tradition,
+        author: card.author,
+        citation: card.citation,
+        analysis: card.analysis,
+        conversation_id: conversationId ?? undefined,
+      });
+    }
+  }
 
   // No situation — show entry input
   if (!situation) {
@@ -123,15 +259,12 @@ export function ConversationScreen() {
         {/* conversation thread */}
         <div className="flex-1 overflow-auto px-9 py-8 flex flex-col gap-7 max-w-[820px] self-center w-full">
 
-          {/* user situation bubble */}
           <UserBubble text={situation} />
 
-          {/* thinking */}
           {(phase === "connecting" || phase === "thinking") && (
             <ThinkingIndicator node={statusNode} />
           )}
 
-          {/* clarifying pause */}
           {clarifyQuestion && (
             <ClarifyingPause
               question={clarifyQuestion}
@@ -140,13 +273,10 @@ export function ConversationScreen() {
             />
           )}
 
-          {/* user's clarify answer */}
           {clarifyAnswer && <UserBubble text={clarifyAnswer} />}
 
-          {/* responding indicator */}
           {phase === "responding" && <ThinkingIndicator node={statusNode} />}
 
-          {/* tradition cards + action plan */}
           {traditionCards.length > 0 && (
             <div className="flex gap-3.5">
               <div className="w-8 flex-shrink-0" />
@@ -181,6 +311,7 @@ export function ConversationScreen() {
                       title: s.title,
                       body: s.body,
                     }))}
+                    onSaveToJournal={phase === "done" ? handleSaveToJournal : undefined}
                   />
                 )}
 
@@ -196,7 +327,6 @@ export function ConversationScreen() {
             </div>
           )}
 
-          {/* error */}
           {phase === "error" && (
             <div className="flex gap-3.5">
               <div className="w-8 h-8 rounded-full border border-ink flex items-center justify-center font-serif text-sm flex-shrink-0">
@@ -209,7 +339,6 @@ export function ConversationScreen() {
           )}
         </div>
 
-        {/* input bar */}
         {showInput && (
           <div className="px-9 pb-6 pt-4 border-t border-line flex-shrink-0">
             <div className="max-w-[820px] mx-auto">

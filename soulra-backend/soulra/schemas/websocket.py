@@ -54,6 +54,7 @@ class ActionStepEvent(BaseModel):
 
 class DoneEvent(BaseModel):
     type: Literal["done"] = "done"
+    conversation_id: str | None = None
 
 
 class ErrorEvent(BaseModel):

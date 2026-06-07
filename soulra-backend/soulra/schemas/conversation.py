@@ -8,6 +8,20 @@ class ActionStepOut(BaseModel):
     title: str
     body: str
 
+    model_config = {"from_attributes": True}
+
+
+class TraditionCardOut(BaseModel):
+    card_order: int
+    tradition: str
+    author: str
+    quote: str
+    citation: str
+    analysis: str
+    source_passage: str
+
+    model_config = {"from_attributes": True}
+
 
 class ConversationOut(BaseModel):
     id: uuid.UUID
@@ -17,5 +31,6 @@ class ConversationOut(BaseModel):
     clarify_ans: str | None
     created_at: datetime
     action_steps: list[ActionStepOut] = []
+    tradition_cards: list[TraditionCardOut] = []
 
     model_config = {"from_attributes": True}

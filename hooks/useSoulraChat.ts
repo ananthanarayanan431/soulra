@@ -34,6 +34,7 @@ export interface ChatState {
   traditionCards: TraditionCard[];
   actionSteps: ActionStep[];
   error: string | null;
+  conversationId: string | null;
 }
 
 type Action =
@@ -51,6 +52,7 @@ const INITIAL: ChatState = {
   traditionCards: [],
   actionSteps: [],
   error: null,
+  conversationId: null,
 };
 
 function reducer(state: ChatState, action: Action): ChatState {
@@ -94,7 +96,7 @@ function reducer(state: ChatState, action: Action): ChatState {
             actionSteps: [...state.actionSteps, { n: e.n, title: e.title, body: e.body }],
           };
         case "done":
-          return { ...state, phase: "done" };
+          return { ...state, phase: "done", conversationId: e.conversation_id ?? null };
         case "error":
           return { ...state, phase: "error", error: e.message };
         default:

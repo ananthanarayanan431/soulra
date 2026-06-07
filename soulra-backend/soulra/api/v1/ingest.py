@@ -76,7 +76,13 @@ def _dispatch(job: IngestJob, filename: str, metadata: dict, **kwargs) -> None:
     logger.info("ingest_task_queued", job_id=str(job.id), task_id=task.id)
 
 
-@router.post("/ingest/pdf", status_code=202, response_model=SuccessResponse[IngestJobResponse])
+@router.post(
+    "/ingest/pdf",
+    status_code=202,
+    response_model=SuccessResponse[IngestJobResponse],
+    summary="Ingest a PDF file",
+    description="Accepts a PDF upload along with tradition metadata (tradition, author, source, era) and enqueues a background ingest job. Returns the job ID immediately — poll `/ingest/jobs/{job_id}` to track progress.",
+)
 async def ingest_pdf(
     request: Request,
     file: UploadFile = File(...),
@@ -112,7 +118,13 @@ async def ingest_pdf(
     return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=filename))
 
 
-@router.post("/ingest/text", status_code=202, response_model=SuccessResponse[IngestJobResponse])
+@router.post(
+    "/ingest/text",
+    status_code=202,
+    response_model=SuccessResponse[IngestJobResponse],
+    summary="Ingest plain text",
+    description="Accepts a raw text string along with tradition metadata and enqueues a background ingest job. Useful for ingesting passages that are already extracted. Returns a job ID for polling.",
+)
 async def ingest_text(
     content: str = Form(...),
     tradition: str = Form(...),
@@ -135,7 +147,13 @@ async def ingest_text(
     return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=filename))
 
 
-@router.post("/ingest/url", status_code=202, response_model=SuccessResponse[IngestJobResponse])
+@router.post(
+    "/ingest/url",
+    status_code=202,
+    response_model=SuccessResponse[IngestJobResponse],
+    summary="Ingest from a URL",
+    description="Fetches and ingests content from a public HTTP/HTTPS URL. Private IPs and loopback addresses are blocked (SSRF protection). Enqueues a background ingest job and returns the job ID for polling.",
+)
 async def ingest_url(
     url: str = Form(...),
     tradition: str = Form(...),
@@ -156,7 +174,12 @@ async def ingest_url(
     return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=url))
 
 
-@router.get("/ingest/jobs/{job_id}", response_model=SuccessResponse[IngestJobResponse])
+@router.get(
+    "/ingest/jobs/{job_id}",
+    response_model=SuccessResponse[IngestJobResponse],
+    summary="Get ingest job status",
+    description="Polls the status of a background ingest job by its UUID. Checks Redis first (fast path), then falls back to Postgres. Returns status, chunk count, token usage, and any error message.",
+)
 async def get_ingest_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     job_id_str = str(job_id)
 

@@ -25,6 +25,10 @@ class Conversation(Base):
     action_steps: Mapped[list["ActionStep"]] = relationship(
         back_populates="conversation", cascade="all, delete-orphan"
     )
+    tradition_cards: Mapped[list["TraditionCard"]] = relationship(  # type: ignore[name-defined]
+        back_populates="conversation", cascade="all, delete-orphan",
+        order_by="TraditionCard.card_order"
+    )
 
 
 class ActionStep(Base):

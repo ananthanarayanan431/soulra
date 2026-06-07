@@ -11,7 +11,7 @@ export interface TraditionDoneEvent {
   source_passage: string;
 }
 export interface ActionStepEvent { type: "action_step"; n: string; title: string; body: string; }
-export interface DoneEvent      { type: "done"; }
+export interface DoneEvent      { type: "done"; conversation_id?: string; }
 export interface ErrorEvent     { type: "error"; message: string; code: string; }
 
 export type WsServerEvent =

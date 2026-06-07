@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { ConversationScreen } from "@/components/screens/ConversationScreen";
+import { getConversation } from "@/lib/api";
+import type { Conversation } from "@/lib/api";
 
 function Loading() {
   return (
@@ -9,10 +11,21 @@ function Loading() {
   );
 }
 
-export default function ChatPage() {
+export default async function ChatPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; id?: string }>;
+}) {
+  const { q, id } = await searchParams;
+
+  let loadedConversation: Conversation | null = null;
+  if (id) {
+    loadedConversation = await getConversation(id);
+  }
+
   return (
     <Suspense fallback={<Loading />}>
-      <ConversationScreen />
+      <ConversationScreen situation={q ?? null} loadedConversation={loadedConversation} />
     </Suspense>
   );
 }

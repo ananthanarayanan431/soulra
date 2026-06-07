@@ -16,6 +16,9 @@ from soulra.api.v1.health import router as health_router
 from soulra.api.v1.ingest import router as ingest_router
 from soulra.api.v1.passages import router as passages_router
 from soulra.api.v1.conversations import router as conversations_router
+from soulra.api.v1.traditions import router as traditions_router
+from soulra.api.v1.practice import router as practice_router
+from soulra.api.v1.journal import router as journal_router
 from soulra.api.websocket import router as ws_router, set_graph
 from soulra.services import cache as job_cache
 
@@ -73,13 +76,27 @@ async def lifespan(_app: FastAPI):
             from soulra.services.retrieval.retriever import WisdomRetriever
             from soulra.graph.builder import build_graph
 
+            # Ensure pgvector extension and LangChain tables exist.
+            # We create the extension ourselves as a single statement (asyncpg
+            # rejects multi-command prepared statements, which PGVector uses
+            # when create_extension=True).
+            from sqlalchemy import text
+            from soulra.database import engine as _db_engine
+            async with _db_engine.connect() as _conn:
+                await _conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                await _conn.commit()
+
             # Initialise PGVector and retriever here so they are bound to the
             # current event loop and not held in lru_cache across reloads.
             vs = PGVector(
                 embeddings=get_embeddings(),
                 collection_name="wisdom_passages",
                 connection=settings.database_url,
+                async_mode=True,
+                create_extension=False,
             )
+            await vs.acreate_tables_if_not_exists()
+            await vs.acreate_collection()
             retriever = WisdomRetriever(vectorstore=vs)
             set_vectorstore(vs)
             set_retriever(retriever)
@@ -87,6 +104,7 @@ async def lifespan(_app: FastAPI):
             # AsyncPostgresSaver needs a sync-style postgres URL (no +asyncpg)
             sync_db_url = settings.database_url.replace("+asyncpg", "")
             async with AsyncPostgresSaver.from_conn_string(sync_db_url) as checkpointer:
+                await checkpointer.setup()
                 graph = build_graph(
                     retriever=retriever,
                     fast_llm=get_fast_llm(),
@@ -124,6 +142,9 @@ app.include_router(health_router, prefix="/api/v1")
 app.include_router(ingest_router, prefix="/api/v1")
 app.include_router(passages_router, prefix="/api/v1")
 app.include_router(conversations_router, prefix="/api/v1")
+app.include_router(traditions_router, prefix="/api/v1")
+app.include_router(practice_router, prefix="/api/v1")
+app.include_router(journal_router, prefix="/api/v1")
 app.include_router(ws_router)
 
 

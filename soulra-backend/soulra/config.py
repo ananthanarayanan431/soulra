@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     cohere_api_key: str
 
-    smart_model: str = "anthropic/claude-opus-4-8"
-    fast_model: str = "anthropic/claude-sonnet-4-6"
+    smart_model: str = "openai/gpt-4o-mini"
+    fast_model: str = "openai/gpt-4o-mini"
     embedding_model: str = "openai/text-embedding-3-small"
 
     max_upload_mb: int = 50

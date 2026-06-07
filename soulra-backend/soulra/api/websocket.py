@@ -3,6 +3,7 @@ import asyncio
 import json
 import uuid
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from soulra.services.practice_builder import save_conversation_and_create_arc
 from soulra.schemas.websocket import (
     StartMessage, ClarificationMessage,
     StatusEvent, ClarifyEvent, ChipsEvent,
@@ -28,7 +29,7 @@ def set_graph(g) -> None:
     _graph = g
 
 
-@router.websocket("/ws/chat")
+@router.websocket("/ws/chat", name="chat_ws")
 async def chat_ws(websocket: WebSocket):
     origin = websocket.headers.get("origin", "")
     if origin and origin not in settings.allowed_origins:
@@ -62,6 +63,7 @@ async def chat_ws(websocket: WebSocket):
         initial_input = make_initial_state(msg.situation)
 
         clarify_done = False
+        clarify_q = ""
         async for event in graph.astream_events(initial_input, config, version="v2"):
             name = event.get("name", "")
             etype = event.get("event", "")
@@ -79,10 +81,10 @@ async def chat_ws(websocket: WebSocket):
 
             if etype == "on_chain_end" and name == "clarify":
                 output = event.get("data", {}).get("output", {})
-                question = output.get("clarify_question", "")
+                clarify_q = output.get("clarify_question", "")
                 chips = output.get("clarify_chips", [])
-                if question:
-                    await send(ClarifyEvent(question=question).model_dump())
+                if clarify_q:
+                    await send(ClarifyEvent(question=clarify_q).model_dump())
                     await send(ChipsEvent(options=chips).model_dump())
                 clarify_done = True
                 break  # graph is now paused at interrupt_before["retrieve_refined"]
@@ -118,13 +120,25 @@ async def chat_ws(websocket: WebSocket):
 
             if etype == "on_chain_end" and name == "synthesize":
                 output = event.get("data", {}).get("output", {})
-                for card in output.get("tradition_cards", []):
+                tradition_cards = output.get("tradition_cards", [])
+                action_steps = output.get("action_steps", [])
+                for card in tradition_cards:
                     await send(TraditionDoneEvent(**card).model_dump())
-                for step in output.get("action_steps", []):
+                for step in action_steps:
                     await send(ActionStepEvent(**step).model_dump())
+                conv_id = str(uuid.uuid4())
+                asyncio.create_task(save_conversation_and_create_arc(
+                    conversation_id=conv_id,
+                    thread_id=thread_id,
+                    situation=msg.situation,
+                    clarify_q=clarify_q,
+                    clarify_ans=clarification.choice,
+                    tradition_cards_data=tradition_cards,
+                    action_steps_data=action_steps,
+                ))
                 break
 
-        await send(DoneEvent().model_dump())
+        await send(DoneEvent(conversation_id=conv_id).model_dump())
 
     except WebSocketDisconnect:
         logger.info("ws_disconnected", thread_id=thread_id)

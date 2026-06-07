@@ -20,12 +20,22 @@ class StatusData(BaseModel):
     vector_store: dict
 
 
-@router.get("/health", response_model=SuccessResponse[HealthData])
+@router.get(
+    "/health",
+    response_model=SuccessResponse[HealthData],
+    summary="Health check",
+    description="Lightweight liveness probe. Returns `ok` if the API process is running. Does not check external dependencies.",
+)
 async def health():
     return SuccessResponse(data=HealthData(status="ok"))
 
 
-@router.get("/status", response_model=SuccessResponse[StatusData])
+@router.get(
+    "/status",
+    response_model=SuccessResponse[StatusData],
+    summary="System status",
+    description="Readiness probe that checks all external dependencies: Postgres database, Redis cache, and the vector store passage count. Use this to confirm the full system is operational before serving traffic.",
+)
 async def status(db: AsyncSession = Depends(get_db)):
     db_ok = False
     passage_count = 0

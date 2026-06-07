@@ -11,7 +11,12 @@ from soulra.schemas.responses import SuccessResponse
 router = APIRouter(tags=["conversations"])
 
 
-@router.get("/conversations", response_model=SuccessResponse[list[ConversationOut]])
+@router.get(
+    "/conversations",
+    response_model=SuccessResponse[list[ConversationOut]],
+    summary="List conversations",
+    description="Returns a paginated list of all conversations ordered by most recent first. Includes associated action steps for each conversation.",
+)
 async def list_conversations(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -19,7 +24,10 @@ async def list_conversations(
 ):
     stmt = (
         select(Conversation)
-        .options(selectinload(Conversation.action_steps))
+        .options(
+            selectinload(Conversation.action_steps),
+            selectinload(Conversation.tradition_cards),
+        )
         .order_by(Conversation.created_at.desc())
         .limit(limit)
         .offset(offset)
@@ -28,14 +36,22 @@ async def list_conversations(
     return SuccessResponse(data=[ConversationOut.model_validate(r) for r in rows])
 
 
-@router.get("/conversations/{conversation_id}", response_model=SuccessResponse[ConversationOut])
+@router.get(
+    "/conversations/{conversation_id}",
+    response_model=SuccessResponse[ConversationOut],
+    summary="Get a conversation",
+    description="Fetches a single conversation by its UUID, including all associated action steps. Returns 404 if not found.",
+)
 async def get_conversation(
     conversation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
     stmt = (
         select(Conversation)
-        .options(selectinload(Conversation.action_steps))
+        .options(
+            selectinload(Conversation.action_steps),
+            selectinload(Conversation.tradition_cards),
+        )
         .where(Conversation.id == conversation_id)
     )
     row = (await db.execute(stmt)).scalar_one_or_none()
@@ -44,7 +60,12 @@ async def get_conversation(
     return SuccessResponse(data=ConversationOut.model_validate(row))
 
 
-@router.delete("/conversations/{conversation_id}", status_code=204)
+@router.delete(
+    "/conversations/{conversation_id}",
+    status_code=204,
+    summary="Delete a conversation",
+    description="Permanently deletes a conversation and its associated action steps by UUID. Returns 404 if not found. This action is irreversible.",
+)
 async def delete_conversation(
     conversation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
