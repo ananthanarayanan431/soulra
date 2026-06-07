@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from soulra.database import get_db
 from soulra.models.tradition import Tradition
 from soulra.schemas.responses import SuccessResponse
-from soulra.schemas.tradition import CreateTradition, PreferencesUpdate, TraditionOut, TraditionsResponse
+from soulra.schemas.tradition import CreateTradition, PreferencesUpdate, TraditionOut, TraditionsResponse, TraditionUpdate
 
 
 def _slugify(name: str) -> str:
@@ -149,6 +149,42 @@ async def get_tradition(slug: str, db: AsyncSession = Depends(get_db)):
     row = await db.get(Tradition, slug)
     if row is None:
         raise HTTPException(status_code=404, detail="Tradition not found")
+    counts = await _passage_counts(db)
+    c = counts.get(row.slug, {"passages": 0, "sources": 0})
+    return SuccessResponse(data=TraditionOut(
+        slug=row.slug,
+        name=row.name,
+        origin=row.origin,
+        era=row.era,
+        sources=c["sources"],
+        passages=c["passages"],
+        selected=row.user_selected,
+        description=row.description,
+    ))
+
+
+@router.put(
+    "/traditions/{slug}",
+    response_model=SuccessResponse[TraditionOut],
+    summary="Update a wisdom tradition",
+    description="Partially updates a tradition's name, origin, era, or description — only the provided fields change. The slug is immutable. Returns 404 if the slug doesn't exist.",
+)
+async def update_tradition(slug: str, body: TraditionUpdate, db: AsyncSession = Depends(get_db)):
+    row = await db.get(Tradition, slug)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Tradition not found")
+
+    if body.name is not None:
+        row.name = body.name
+    if body.origin is not None:
+        row.origin = body.origin
+    if body.era is not None:
+        row.era = body.era
+    if body.description is not None:
+        row.description = body.description
+    await db.commit()
+    await db.refresh(row)
+
     counts = await _passage_counts(db)
     c = counts.get(row.slug, {"passages": 0, "sources": 0})
     return SuccessResponse(data=TraditionOut(

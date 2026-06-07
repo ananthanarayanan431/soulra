@@ -30,3 +30,10 @@ class CreateTradition(BaseModel):
     era: str
     slug: str | None = None
     description: str | None = None
+
+
+class TraditionUpdate(BaseModel):
+    name: str | None = None
+    origin: str | None = None
+    era: str | None = None
+    description: str | None = None
