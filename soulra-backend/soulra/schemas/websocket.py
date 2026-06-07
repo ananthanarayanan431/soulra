@@ -42,6 +42,7 @@ class TraditionDoneEvent(BaseModel):
     quote: str
     citation: str
     analysis: str
+    source_passage: str
 
 
 class ActionStepEvent(BaseModel):
@@ -53,6 +54,7 @@ class ActionStepEvent(BaseModel):
 
 class DoneEvent(BaseModel):
     type: Literal["done"] = "done"
+    conversation_id: str | None = None
 
 
 class ErrorEvent(BaseModel):

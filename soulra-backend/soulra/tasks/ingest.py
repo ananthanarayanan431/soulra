@@ -52,6 +52,8 @@ async def _run_pipeline(
         embeddings=make_embeddings(),
         collection_name="wisdom_passages",
         connection=settings.database_url,
+        async_mode=True,
+        create_extension=False,
     )
     pipeline = IngestionPipeline(vectorstore=vs)
 

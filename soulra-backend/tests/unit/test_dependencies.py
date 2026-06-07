@@ -40,3 +40,23 @@ def test_lru_cache_not_on_retriever():
     import soulra.dependencies as deps
     assert not hasattr(deps.get_retriever, "cache_info"), \
         "get_retriever must not use @lru_cache"
+
+
+def test_get_cohere_client_raises_when_not_initialised():
+    import soulra.dependencies as deps
+    deps._cohere_client = None
+    with pytest.raises(RuntimeError, match="Cohere client not initialised"):
+        deps.get_cohere_client()
+
+
+def test_get_cohere_client_returns_value_after_set():
+    import soulra.dependencies as deps
+    sentinel = object()
+    deps.set_cohere_client(sentinel)
+    assert deps.get_cohere_client() is sentinel
+    deps._cohere_client = None
+
+
+def test_lru_cache_not_on_cohere_client():
+    import soulra.dependencies as deps
+    assert not hasattr(deps.get_cohere_client, "cache_info")

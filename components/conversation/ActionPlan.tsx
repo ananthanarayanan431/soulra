@@ -10,11 +10,12 @@ interface ActionStep {
 
 interface ActionPlanProps {
   steps: ActionStep[];
-  onSaveToJournal?: () => void;
+  onSaveToJournal?: () => Promise<void>;
 }
 
 export function ActionPlan({ steps, onSaveToJournal }: ActionPlanProps) {
   const [committed, setCommitted] = useState<Set<number>>(new Set());
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   function toggle(i: number) {
     setCommitted(prev => {
@@ -22,6 +23,17 @@ export function ActionPlan({ steps, onSaveToJournal }: ActionPlanProps) {
       next.has(i) ? next.delete(i) : next.add(i);
       return next;
     });
+  }
+
+  async function handleSave() {
+    if (!onSaveToJournal || saveState !== "idle") return;
+    setSaveState("saving");
+    try {
+      await onSaveToJournal();
+      setSaveState("saved");
+    } catch {
+      setSaveState("idle");
+    }
   }
 
   return (
@@ -61,8 +73,18 @@ export function ActionPlan({ steps, onSaveToJournal }: ActionPlanProps) {
           Suggest different steps
         </button>
         <span className="flex-1" />
-        <button onClick={onSaveToJournal} className="text-xs border border-accent-soft text-accent-soft rounded-full px-3 py-1.5">
-          ◇ Save to journal
+        <button
+          onClick={handleSave}
+          disabled={saveState !== "idle" || !onSaveToJournal}
+          className={[
+            "text-xs border rounded-full px-3 py-1.5 transition-colors",
+            saveState === "saved"
+              ? "border-green-400 text-green-400"
+              : "border-accent-soft text-accent-soft",
+            saveState !== "idle" ? "opacity-70" : "hover:bg-accent-soft/10",
+          ].join(" ")}
+        >
+          {saveState === "saving" ? "Saving…" : saveState === "saved" ? "◇ Saved ✓" : "◇ Save to journal"}
         </button>
       </div>
     </div>

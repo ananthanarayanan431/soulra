@@ -1,5 +1,6 @@
 # app/dependencies.py
 from functools import lru_cache
+from typing import Any
 
 
 @lru_cache
@@ -53,3 +54,19 @@ def get_smart_llm():
 def get_fast_llm():
     from soulra.services.llm.factory import make_fast_llm
     return make_fast_llm()
+
+
+_cohere_client = None
+
+
+def set_cohere_client(c: Any) -> None:
+    global _cohere_client
+    _cohere_client = c
+
+
+def get_cohere_client() -> Any:
+    if _cohere_client is None:
+        raise RuntimeError(
+            "Cohere client not initialised — call set_cohere_client() during app lifespan"
+        )
+    return _cohere_client

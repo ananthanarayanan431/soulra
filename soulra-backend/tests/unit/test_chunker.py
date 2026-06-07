@@ -21,3 +21,25 @@ def test_chunk_documents_no_empty_chunks():
     docs = [Document(page_content="A" * 1000, metadata={})]
     chunks = chunk_documents(docs)
     assert all(len(c.page_content.strip()) > 0 for c in chunks)
+
+
+def test_chunk_documents_stamps_ingested_at():
+    docs = [Document(page_content="Short text about Stoicism.", metadata={"tradition": "stoic"})]
+    chunks = chunk_documents(docs)
+    assert chunks
+    for chunk in chunks:
+        assert "ingested_at" in chunk.metadata, "Each chunk must have an ingested_at timestamp"
+        # Must be a non-empty ISO 8601 string
+        assert isinstance(chunk.metadata["ingested_at"], str)
+        assert "T" in chunk.metadata["ingested_at"]  # ISO 8601 contains a T separator
+        assert chunk.metadata["ingested_at"].endswith("+00:00")
+
+
+def test_chunk_documents_does_not_overwrite_existing_ingested_at():
+    existing_ts = "2020-01-01T00:00:00+00:00"
+    docs = [Document(
+        page_content="Short text about Stoicism.",
+        metadata={"ingested_at": existing_ts},
+    )]
+    chunks = chunk_documents(docs)
+    assert all(c.metadata["ingested_at"] == existing_ts for c in chunks)

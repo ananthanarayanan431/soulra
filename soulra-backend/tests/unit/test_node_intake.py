@@ -20,6 +20,7 @@ def _make_empty_state(situation="I keep saying yes to projects I don't want."):
         "tradition_hints": [],
         "query": "",
         "retrieved_docs": [],
+        "reranked_docs": [],
         "grade_result": "",
         "clarify_question": "",
         "clarify_chips": [],

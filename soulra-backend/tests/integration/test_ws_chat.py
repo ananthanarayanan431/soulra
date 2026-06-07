@@ -52,6 +52,7 @@ def test_ws_chat_sends_clarify_and_done():
                             "quote": "You always own the option of having no opinion.",
                             "citation": "Meditations 6.13",
                             "analysis": "The Stoic move is to notice the request comes from outside.",
+                            "source_passage": "Stoic wisdom excerpt for grounding.",
                         }
                     ],
                     "action_steps": [
@@ -120,6 +121,8 @@ def test_ws_chat_sends_clarify_and_done():
         tradition_dones = [m for m in messages if m["type"] == "tradition_done"]
         assert len(tradition_dones) == 1
         assert tradition_dones[0]["tradition"] == "Stoic"
+        assert "source_passage" in tradition_dones[0]
+        assert tradition_dones[0]["source_passage"] == "Stoic wisdom excerpt for grounding."
         mock_graph.aupdate_state.assert_called_once()
         call_args = mock_graph.aupdate_state.call_args
         assert call_args[0][1]["clarify_answer"] == "Internal"
@@ -131,7 +134,6 @@ def test_ws_chat_sends_error_on_graph_error():
     """Phase-1 loop must exit with ErrorEvent (not deadlock) when graph emits on_chain_error."""
     from soulra.main import app
     from soulra.api.websocket import set_graph
-    import json
 
     async def mock_stream_with_error(*args, **kwargs):
         yield {"event": "on_chain_start", "name": "intake", "data": {}}
@@ -165,7 +167,6 @@ def test_ws_chat_sends_error_on_graph_error():
 def test_make_initial_state_covers_all_soulra_state_keys():
     """make_initial_state must produce a dict with all SoulraState keys."""
     from soulra.graph.state import make_initial_state, SoulraState
-    import typing
     state = make_initial_state("test situation")
     expected_keys = set(SoulraState.__annotations__.keys())
     actual_keys = set(state.keys())
@@ -176,7 +177,8 @@ def test_make_initial_state_covers_all_soulra_state_keys():
 
 def test_websocket_uses_make_initial_state():
     """websocket.py must use make_initial_state instead of a hardcoded dict."""
-    import ast, pathlib
+    import ast
+    import pathlib
     ws_source = pathlib.Path("soulra/api/websocket.py").read_text()
     assert "make_initial_state" in ws_source, \
         "websocket.py must call make_initial_state() — hardcoded dict drifts from SoulraState"
@@ -195,7 +197,7 @@ def test_ws_chat_rejects_disallowed_origin():
                 headers={"origin": "http://evil.com"}
             ) as ws:
                 # Should be rejected — connection may close immediately
-                msg = ws.receive_json()
+                _msg = ws.receive_json()
                 # If we get here, might receive error or nothing
         except Exception:
             pass  # Connection rejected is the expected outcome

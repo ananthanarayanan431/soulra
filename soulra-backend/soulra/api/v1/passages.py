@@ -11,7 +11,12 @@ def _get_vs():
     return get_vectorstore()
 
 
-@router.get("/passages", response_model=SuccessResponse[list[PassageOut]])
+@router.get(
+    "/passages",
+    response_model=SuccessResponse[list[PassageOut]],
+    summary="List passages",
+    description="Returns a list of ingested wisdom passages from the vector store. Optionally filter by `tradition` name. Results are retrieved via similarity search against the word 'wisdom' to surface the most relevant passages.",
+)
 async def list_passages(
     tradition: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
@@ -44,7 +49,12 @@ async def list_passages(
     return SuccessResponse(data=passages)
 
 
-@router.delete("/passages/{passage_id}", status_code=204)
+@router.delete(
+    "/passages/{passage_id}",
+    status_code=204,
+    summary="Delete a passage",
+    description="Permanently removes a passage from the vector store by its ID. This action is irreversible — the passage will no longer appear in search results or be used in RAG responses.",
+)
 async def delete_passage(passage_id: str):
     vectorstore = _get_vs()
     try:
@@ -54,7 +64,12 @@ async def delete_passage(passage_id: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/collections", response_model=SuccessResponse[list[dict]])
+@router.get(
+    "/collections",
+    response_model=SuccessResponse[list[dict]],
+    summary="List vector store collections",
+    description="Returns the list of active vector store collections. Currently returns a single collection corresponding to the configured PGVector collection name.",
+)
 async def list_collections():
     vectorstore = _get_vs()
     return SuccessResponse(data=[{"name": vectorstore.collection_name}])

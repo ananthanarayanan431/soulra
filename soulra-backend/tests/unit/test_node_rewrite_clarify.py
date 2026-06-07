@@ -10,6 +10,7 @@ def _make_state(**overrides):
         "query": "refusing",
         "tradition_hints": ["stoic"],
         "retrieved_docs": [],
+        "reranked_docs": [],
         "grade_result": "not_relevant",
         "clarify_question": "",
         "clarify_chips": [],
