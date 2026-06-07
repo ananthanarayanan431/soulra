@@ -7,6 +7,8 @@ import { completeDay, saveReflection, saveJournalEntry } from "@/lib/api";
 interface Props {
   arcId: string;
   dayNumber: number;
+  dayLabel: string;
+  isToday: boolean;
   morningQuote: string;
   morningAuthor: string;
   morningCitation: string;
@@ -19,6 +21,8 @@ interface Props {
 export function DailyClient({
   arcId,
   dayNumber,
+  dayLabel,
+  isToday,
   morningQuote,
   morningAuthor,
   morningCitation,
@@ -73,7 +77,7 @@ export function DailyClient({
       {/* morning lesson */}
       <div className="border-[1.5px] border-ink rounded-xl p-6 bg-paper">
         <div className="font-mono text-[10px] text-muted uppercase tracking-widest mb-2">
-          morning &middot; today&rsquo;s practice
+          morning &middot; {isToday ? "today's practice" : `${dayLabel.toLowerCase()}'s practice`}
         </div>
         <div className="font-serif text-[24px] leading-[1.35] italic">
           &ldquo;{morningQuote}&rdquo;
@@ -86,7 +90,9 @@ export function DailyClient({
         </div>
         <div className="flex gap-2 mt-5">
           <Button small primary onClick={handleCarry} disabled={carried}>
-            {carried ? "Carrying this today ✓" : "I’ll carry this today"}
+            {carried
+              ? (isToday ? "Carrying this today ✓" : "Carried ✓")
+              : (isToday ? "I’ll carry this today" : "I’ll carry this")}
           </Button>
           <span className="flex-1" />
           <Button small onClick={handleSaveToJournal} disabled={journalState !== "idle"}>
