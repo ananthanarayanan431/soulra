@@ -54,6 +54,9 @@ interface CompletedViewProps {
 }
 
 function CompletedView({ situation, traditionCards, actionSteps, conversationId }: CompletedViewProps) {
+  const router = useRouter();
+  const [followUp, setFollowUp] = useState("");
+
   async function handleSaveToJournal() {
     for (const card of traditionCards) {
       await saveJournalEntry({
@@ -86,6 +89,7 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
           <UserBubble text={situation} />
 
           {traditionCards.length > 0 && (
+
             <div className="flex gap-3.5">
               <div className="w-8 flex-shrink-0" />
               <div className="flex-1 flex flex-col gap-4">
@@ -136,6 +140,20 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
               </div>
             </div>
           )}
+        </div>
+
+        <div className="px-9 pb-6 pt-4 border-t border-line flex-shrink-0">
+          <div className="max-w-[820px] mx-auto">
+            <Input
+              placeholder="Ask a follow-up…"
+              value={followUp}
+              onChange={setFollowUp}
+              onSubmit={() => {
+                const trimmed = followUp.trim();
+                if (trimmed) router.push(`/chat?q=${encodeURIComponent(trimmed)}`);
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -391,6 +409,10 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                   placeholder="Ask a follow-up…"
                   value={reply}
                   onChange={setReply}
+                  onSubmit={() => {
+                    const trimmed = reply.trim();
+                    if (trimmed) router.push(`/chat?q=${encodeURIComponent(trimmed)}`);
+                  }}
                 />
               )}
             </div>
