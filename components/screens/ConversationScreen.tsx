@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout";
-import { Button, Input } from "@/components/ui";
+import { Button, Chip, Input } from "@/components/ui";
 import { TraditionCard } from "@/components/conversation/TraditionCard";
 import { ActionPlan } from "@/components/conversation/ActionPlan";
 import { ClarifyingPause } from "@/components/conversation/ClarifyingPause";
@@ -203,6 +203,13 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
 
   // No situation — show entry input
   if (!situation) {
+    const PROMPTS = [
+      "I keep saying yes when I mean no",
+      "I'm carrying grief that won't move",
+      "Who am I outside this role?",
+      "I can't stop replaying what happened",
+    ];
+
     return (
       <div className="flex h-screen bg-paper overflow-hidden">
         <Sidebar />
@@ -210,7 +217,7 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
           <div className="font-serif text-[32px] leading-[1.3] text-center max-w-[500px]">
             What is asking for your attention today?
           </div>
-          <div className="w-full max-w-[580px]">
+          <div className="w-full max-w-[580px] flex flex-col gap-3">
             <Input
               big
               placeholder="Tell Soulra what's on your mind…"
@@ -221,6 +228,17 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                 if (trimmed) router.push(`/chat?q=${encodeURIComponent(trimmed)}`);
               }}
             />
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="font-mono text-[10px] text-muted">or try:</span>
+              {PROMPTS.map(p => (
+                <Chip
+                  key={p}
+                  onClick={() => router.push(`/chat?q=${encodeURIComponent(p)}`)}
+                >
+                  &ldquo;{p}&rdquo;
+                </Chip>
+              ))}
+            </div>
           </div>
         </div>
       </div>
