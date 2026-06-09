@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { ingestPdf, ingestUrl, ingestText, ingestYoutube, getIngestJob } from "@/lib/api";
 import type { IngestJob } from "@/lib/api";
@@ -47,7 +47,22 @@ export function IngestPanel({ traditionSlug, traditionName, traditionEra, onDone
   const [fileName, setFileName] = useState("");
   const [jobState, setJobState] = useState<JobState>({ phase: "idle" });
 
+  const STEPS = [
+    "Uploading file…",
+    "Parsing document…",
+    "Splitting into passages…",
+    "Generating embeddings…",
+    "Indexing in vector store…",
+  ];
+
   const busy = jobState.phase === "submitting" || jobState.phase === "processing";
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    if (jobState.phase !== "processing") { setStepIndex(0); return; }
+    const t = setInterval(() => setStepIndex(i => Math.min(i + 1, STEPS.length - 1)), 3500);
+    return () => clearInterval(t);
+  }, [jobState.phase]);
 
   function switchMode(m: Mode) {
     setMode(m);
@@ -249,38 +264,53 @@ export function IngestPanel({ traditionSlug, traditionName, traditionEra, onDone
         </div>
       )}
 
-      {/* status */}
+      {/* processing indicator */}
       {jobState.phase === "processing" && (
-        <div className="font-mono text-[11px] text-accent animate-pulse">
-          Processing — chunking &amp; embedding…
+        <div className="border border-line rounded-xl p-4 bg-paper flex flex-col gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse flex-shrink-0" />
+            <span className="font-mono text-[11px] text-accent">{STEPS[stepIndex]}</span>
+          </div>
+          <div className="w-full bg-line rounded-full h-[2px] overflow-hidden">
+            <div
+              className="h-full bg-accent transition-all duration-700"
+              style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }}
+            />
+          </div>
+          <div className="font-mono text-[9px] text-muted">
+            Large documents can take a minute or two — don&apos;t close this tab
+          </div>
         </div>
       )}
+
+      {/* done state */}
       {jobState.phase === "done" && (
-        <div className="font-mono text-[11px] text-green-700">
-          Done — {jobState.chunks} chunks indexed ✓
+        <div className="border border-line rounded-xl p-4 bg-paper flex flex-col gap-1.5">
+          <div className="font-mono text-[11px] text-green-700">✓ Indexed successfully</div>
+          <div className="font-mono text-[10px] text-muted">
+            {jobState.chunks} passage{jobState.chunks !== 1 ? "s" : ""} added to {traditionName}
+          </div>
         </div>
       )}
+
+      {/* error */}
       {jobState.phase === "error" && (
         <div className="font-mono text-[11px] text-red-700">{jobState.message}</div>
       )}
 
       {/* actions */}
       <div className="flex gap-2 items-center">
-        <Button small primary type="submit" disabled={!canSubmit}>
-          {jobState.phase === "submitting"
-            ? "Submitting…"
-            : jobState.phase === "processing"
-              ? "Processing…"
-              : "Upload & index"}
-        </Button>
+        {jobState.phase !== "done" && (
+          <Button small primary type="submit" disabled={!canSubmit}>
+            {jobState.phase === "submitting"
+              ? "Submitting…"
+              : jobState.phase === "processing"
+                ? "Processing…"
+                : "Upload & index"}
+          </Button>
+        )}
         {jobState.phase === "done" && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="font-mono text-[10px] text-muted hover:text-ink transition-colors"
-          >
-            Close
-          </button>
+          <Button small type="button" onClick={onCancel}>Done — close panel</Button>
         )}
       </div>
     </form>
