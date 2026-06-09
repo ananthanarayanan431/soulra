@@ -266,7 +266,7 @@ export function IngestPanel({ traditionSlug, traditionName, traditionEra, onDone
 
       {/* actions */}
       <div className="flex gap-2 items-center">
-        <Button small primary disabled={!canSubmit}>
+        <Button small primary type="submit" disabled={!canSubmit}>
           {jobState.phase === "submitting"
             ? "Submitting…"
             : jobState.phase === "processing"
