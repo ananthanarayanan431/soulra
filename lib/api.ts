@@ -310,6 +310,39 @@ export async function ingestPdf(formData: FormData): Promise<IngestJob | null> {
   }
 }
 
+export async function ingestUrl(formData: FormData): Promise<IngestJob | null> {
+  try {
+    const res = await fetch(`${BASE}/api/v1/ingest/url`, { method: "POST", body: formData });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.detail ?? json?.error?.message ?? `HTTP ${res.status}`);
+    }
+    return (await res.json()).data as IngestJob;
+  } catch (e) { throw e; }
+}
+
+export async function ingestText(formData: FormData): Promise<IngestJob | null> {
+  try {
+    const res = await fetch(`${BASE}/api/v1/ingest/text`, { method: "POST", body: formData });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.detail ?? json?.error?.message ?? `HTTP ${res.status}`);
+    }
+    return (await res.json()).data as IngestJob;
+  } catch (e) { throw e; }
+}
+
+export async function ingestYoutube(formData: FormData): Promise<IngestJob | null> {
+  try {
+    const res = await fetch(`${BASE}/api/v1/ingest/youtube`, { method: "POST", body: formData });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.detail ?? json?.error?.message ?? `HTTP ${res.status}`);
+    }
+    return (await res.json()).data as IngestJob;
+  } catch (e) { throw e; }
+}
+
 export async function getIngestJob(jobId: string): Promise<IngestJob | null> {
   try {
     const res = await fetch(`${BASE}/api/v1/ingest/jobs/${jobId}`, { cache: "no-store" });

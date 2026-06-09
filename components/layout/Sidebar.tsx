@@ -13,7 +13,6 @@ const NAV_ITEMS = [
   { href: "/journal",       label: "Journal",          glyph: "◇" },
   { href: "/traditions",    label: "Traditions",       glyph: "◯" },
   { href: "/daily",         label: "Daily practice",   glyph: "✓" },
-  { href: "/ingest",        label: "Upload texts",     glyph: "↑" },
 ];
 
 export function Sidebar() {

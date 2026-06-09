@@ -1,8 +1,9 @@
+import asyncio
 import hashlib
 import ipaddress
+import re
 import socket
 import uuid
-from asyncio import get_event_loop
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -43,9 +44,8 @@ async def _check_url_not_ssrf(url: str) -> None:
         return
     except ValueError:
         pass
-    loop = get_event_loop()
     try:
-        infos = await loop.run_in_executor(None, socket.getaddrinfo, hostname, None)
+        infos = await asyncio.to_thread(socket.getaddrinfo, hostname, None)
     except socket.gaierror:
         raise HTTPException(status_code=400, detail="Invalid URL: cannot resolve host")
     for info in infos:
@@ -172,6 +172,62 @@ async def ingest_url(
     _dispatch(job, url, metadata, source_url=url)
 
     return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=url))
+
+
+_YT_PATTERN = re.compile(
+    r"(?:v=|youtu\.be/|embed/|shorts/|/v/)([a-zA-Z0-9_-]{11})"
+)
+
+
+def _extract_youtube_id(url: str) -> str | None:
+    m = _YT_PATTERN.search(url)
+    return m.group(1) if m else None
+
+
+@router.post(
+    "/ingest/youtube",
+    status_code=202,
+    response_model=SuccessResponse[IngestJobResponse],
+    summary="Ingest from a YouTube video transcript",
+    description="Extracts the auto-generated or manually-uploaded transcript from a YouTube video and ingests it as text. Captions must be available on the video. Returns a job ID for polling.",
+)
+async def ingest_youtube(
+    url: str = Form(...),
+    tradition: str = Form(...),
+    author: str = Form(...),
+    source: str = Form(...),
+    era: str = Form(default="unknown"),
+    db: AsyncSession = Depends(get_db),
+):
+    video_id = _extract_youtube_id(url)
+    if not video_id:
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL — could not extract video ID")
+
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+
+        def _fetch() -> str:
+            entries = YouTubeTranscriptApi.get_transcript(video_id)
+            return " ".join(e["text"] for e in entries)
+
+        text = await asyncio.to_thread(_fetch)
+    except ImportError:
+        raise HTTPException(status_code=501, detail="YouTube transcript support not available on this server")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not fetch transcript: {exc}")
+
+    filename = f"youtube-{video_id}.txt"
+    metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
+
+    job = await _create_job(db, filename, tradition)
+    job_id_str = str(job.id)
+    ukey = cache.upload_key(job_id_str)
+
+    await cache.store_upload(job_id_str, text.encode())
+    await cache.set_job(job_id_str, {"status": "processing"}, ttl=cache._PROCESSING_TTL)
+    _dispatch(job, filename, metadata, upload_key=ukey)
+
+    return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=filename))
 
 
 @router.get(

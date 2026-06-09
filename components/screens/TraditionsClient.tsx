@@ -2,6 +2,7 @@
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { Sidebar } from "@/components/layout";
 import { Chip } from "@/components/ui";
+import { IngestPanel } from "@/components/traditions/IngestPanel";
 import type { Tradition, TraditionInput, TraditionsData } from "@/lib/api";
 import {
   updateTraditionPreferences,
@@ -51,6 +52,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
   const [confirmingSlug, setConfirmingSlug] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ slug: string; message: string } | null>(null);
   const [infoSlug, setInfoSlug] = useState<string | null>(null);
+  const [ingestSlug, setIngestSlug] = useState<string | null>(null);
 
   const eras = ["all", ...Array.from(new Set(traditions.map(t => t.era))).sort()];
   const visible = selectedEra === "all" ? traditions : traditions.filter(t => t.era === selectedEra);
@@ -63,6 +65,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
     setEditingSlug(null);
     setConfirmingSlug(null);
     setInfoSlug(null);
+    setIngestSlug(null);
   }
 
   function toggleTradition(slug: string) {
@@ -100,6 +103,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
       setTraditions(prev => [...prev, created]);
       setShowCreate(false);
       setCreateForm(EMPTY_FORM);
+      setIngestSlug(created.slug);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create tradition");
     } finally {
@@ -301,6 +305,22 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
             {eras.filter(e => e !== "all").map(e => <option key={e} value={e} />)}
           </datalist>
 
+          {/* ingest panel — shown when a tradition is selected for content upload */}
+          {ingestSlug && (() => {
+            const t = traditions.find(x => x.slug === ingestSlug);
+            if (!t) return null;
+            return (
+              <div className="mb-6">
+                <IngestPanel
+                  traditionSlug={t.slug}
+                  traditionName={t.name}
+                  traditionEra={t.era}
+                  onCancel={() => setIngestSlug(null)}
+                />
+              </div>
+            );
+          })()}
+
           {/* tradition cards grid */}
           {visible.length === 0 ? (
             <div className="border border-dashed border-line rounded-xl p-10 text-center font-mono text-[11px] text-muted">
@@ -434,6 +454,13 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
                       {deleteError?.slug === t.slug && (
                         <span className="font-mono text-[9px] text-red-600">{deleteError.message}</span>
                       )}
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); closeOverlays(); setIngestSlug(t.slug); }}
+                        className={`font-mono text-[9px] uppercase tracking-widest ${isPicked ? "text-accent-soft hover:text-paper" : "text-muted hover:text-ink"}`}
+                      >
+                        upload
+                      </button>
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); startEditing(t); }}
