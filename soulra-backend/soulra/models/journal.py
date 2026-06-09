@@ -16,6 +16,7 @@ class JournalEntry(Base):
     author: Mapped[str | None] = mapped_column(String(255), nullable=True)
     citation: Mapped[str | None] = mapped_column(String(255), nullable=True)
     analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    personal_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
     applied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     applied_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)

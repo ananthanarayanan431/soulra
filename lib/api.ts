@@ -203,6 +203,7 @@ export interface JournalEntry {
   author: string | null;
   citation: string | null;
   analysis: string | null;
+  personal_note: string | null;
   tags: string[];
   applied: boolean;
   applied_at: string | null;
@@ -266,7 +267,7 @@ export async function saveJournalEntry(body: {
   }
 }
 
-export async function patchJournalEntry(id: string, body: { applied?: boolean; tags?: string[] }): Promise<JournalEntry | null> {
+export async function patchJournalEntry(id: string, body: { applied?: boolean; tags?: string[]; personal_note?: string }): Promise<JournalEntry | null> {
   try {
     const res = await fetch(`${BASE}/api/v1/journal/${id}`, {
       method: "PATCH",

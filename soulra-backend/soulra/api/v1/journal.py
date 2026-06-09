@@ -165,6 +165,8 @@ async def patch_journal_entry(
         row.applied_at = datetime.now(timezone.utc) if body.applied else None
     if body.tags is not None:
         row.tags = body.tags
+    if body.personal_note is not None:
+        row.personal_note = body.personal_note
 
     await db.commit()
     await db.refresh(row)

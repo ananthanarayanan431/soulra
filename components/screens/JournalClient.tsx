@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout";
 import { Button, Chip } from "@/components/ui";
-import { saveJournalEntry, patchJournalEntry, deleteJournalEntry, formatRelativeDate } from "@/lib/api";
+import { patchJournalEntry, deleteJournalEntry, formatRelativeDate } from "@/lib/api";
 import type { JournalData, JournalEntry } from "@/lib/api";
 
 function formatSavedDate(iso: string): string {
@@ -44,13 +44,17 @@ function EntryRow({
   entry,
   onToggleApplied,
   onDelete,
+  onSaveNote,
 }: {
   entry: JournalEntry;
   onToggleApplied: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
+  onSaveNote: (id: string, note: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const hasDetail = !!(entry.quote || entry.analysis);
+  const [noteText, setNoteText] = useState(entry.personal_note ?? "");
+  const [noteSaving, setNoteSaving] = useState(false);
+  const hasDetail = true;
 
   return (
     <div>
@@ -96,7 +100,7 @@ function EntryRow({
       </div>
 
       {/* expanded detail panel */}
-      {open && hasDetail && (
+      {open && (
         <div className="px-6 pb-6 ml-[44px] flex flex-col gap-4">
           {entry.quote && (
             <blockquote className="font-serif text-[20px] leading-[1.6] italic border-l-2 border-ink pl-5 text-ink">
@@ -115,6 +119,31 @@ function EntryRow({
               ))}
             </div>
           )}
+
+          {/* Personal reflection */}
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+              your reflection
+            </div>
+            <textarea
+              className="w-full bg-paper border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-none outline-none focus:border-ink transition-colors text-ink placeholder:text-ink/30"
+              rows={3}
+              placeholder="What does this mean to you? How have you seen it show up?"
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              onBlur={async () => {
+                const trimmed = noteText.trim();
+                if (trimmed === (entry.personal_note ?? "").trim()) return;
+                setNoteSaving(true);
+                await onSaveNote(entry.id, trimmed);
+                setNoteSaving(false);
+              }}
+            />
+            {noteSaving && (
+              <span className="font-mono text-[10px] text-muted">Saving…</span>
+            )}
+          </div>
+
           <div className="flex gap-3 items-center">
             <button
               onClick={() => onToggleApplied(entry.id, entry.applied)}
@@ -143,9 +172,6 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
   const [activeTag, setActiveTag] = useState("all");
   const [data, setData] = useState(initialData);
   const [, startTransition] = useTransition();
-  const [showNoteForm, setShowNoteForm] = useState(false);
-  const [noteText, setNoteText] = useState("");
-  const [noteSaving, setNoteSaving] = useState(false);
 
   const filtered = activeTag === "all"
     ? data.entries
@@ -164,17 +190,12 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
     });
   }
 
-  async function handleSaveNote() {
-    const trimmed = noteText.trim();
-    if (!trimmed) return;
-    setNoteSaving(true);
-    const entry = await saveJournalEntry({ text: trimmed });
-    setNoteSaving(false);
-    if (entry) {
-      setNoteText("");
-      setShowNoteForm(false);
-      router.refresh();
-    }
+  async function handleSaveNote(id: string, note: string) {
+    await patchJournalEntry(id, { personal_note: note });
+    setData(d => ({
+      ...d,
+      entries: d.entries.map(e => e.id === id ? { ...e, personal_note: note || null } : e),
+    }));
   }
 
   function handleDelete(id: string) {
@@ -205,34 +226,7 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
             <div className="font-serif text-[36px] leading-tight mt-1">Wisdom you&rsquo;ve kept</div>
             <div className="text-[14px] text-muted mt-2 leading-relaxed">{statsLine}</div>
           </div>
-          <div className="flex gap-2">
-            <Button small onClick={() => { setShowNoteForm(v => !v); setNoteText(""); }}>
-              {showNoteForm ? "Cancel" : "+ Add a private note"}
-            </Button>
-          </div>
         </div>
-
-        {showNoteForm && (
-          <div className="px-10 py-4 border-b border-line bg-paper-alt flex flex-col gap-3">
-            <textarea
-              autoFocus
-              className="w-full bg-paper border border-line rounded-lg px-4 py-3 text-[14px] leading-[1.7] resize-none outline-none focus:border-ink transition-colors"
-              rows={3}
-              placeholder="Write a private note…"
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSaveNote();
-              }}
-            />
-            <div className="flex gap-2 items-center">
-              <Button small primary onClick={handleSaveNote} disabled={noteSaving || !noteText.trim()}>
-                {noteSaving ? "Saving…" : "Save note"}
-              </Button>
-              <span className="font-mono text-[10px] text-muted">⌘↵ to save</span>
-            </div>
-          </div>
-        )}
 
         <div className="flex-1 flex overflow-hidden">
           {/* tag + traditions rail */}
@@ -296,6 +290,7 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
                       entry={entry}
                       onToggleApplied={handleToggleApplied}
                       onDelete={handleDelete}
+                      onSaveNote={handleSaveNote}
                     />
                   </div>
                 ))}
