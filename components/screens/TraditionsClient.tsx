@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout";
 import { Chip } from "@/components/ui";
 import { IngestPanel } from "@/components/traditions/IngestPanel";
@@ -32,6 +33,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function TraditionsClient({ initialData }: { initialData: TraditionsData }) {
+  const router = useRouter();
   const [traditions, setTraditions] = useState<Tradition[]>(initialData.traditions);
   const [selectedEra, setSelectedEra] = useState<string>("all");
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(
@@ -318,6 +320,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
                   traditionSlug={t.slug}
                   traditionName={t.name}
                   traditionEra={t.era}
+                  onDone={() => router.refresh()}
                   onCancel={() => setIngestSlug(null)}
                 />
               </div>

@@ -106,6 +106,7 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
                     explanation={t.analysis}
                     citationBook={t.citation}
                     citationChapter=""
+                    sourcePassage={t.source_passage}
                     initiallyExpanded={i === 0}
                   />
                 ))}
@@ -318,6 +319,7 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                     explanation={t.analysis}
                     citationBook={t.citation}
                     citationChapter=""
+                    sourcePassage={t.source_passage}
                     initiallyExpanded={i === 0}
                   />
                 ))}

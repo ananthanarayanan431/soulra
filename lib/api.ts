@@ -286,6 +286,21 @@ export async function deleteJournalEntry(id: string): Promise<void> {
   await fetch(`${BASE}/api/v1/journal/${id}`, { method: "DELETE" });
 }
 
+export async function regenerateSteps(
+  conversationId: string
+): Promise<{ step_number: number; title: string; body: string }[] | null> {
+  try {
+    const res = await fetch(`${BASE}/api/v1/conversations/${conversationId}/regenerate-steps`, {
+      method: "POST",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.data ?? null) as { step_number: number; title: string; body: string }[];
+  } catch {
+    return null;
+  }
+}
+
 export interface IngestJob {
   job_id: string;
   status: "processing" | "done" | "failed";

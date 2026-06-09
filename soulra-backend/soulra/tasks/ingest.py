@@ -144,10 +144,11 @@ def run_ingest(
                 job_id,
                 status="done",
                 chunks_created=result["chunks_created"],
+                tokens_used=result["tokens_used"],
                 completed_at=datetime.now(timezone.utc),
             )
         )
-        _cache_job(r, job_id, {"status": "done", "chunks_created": result["chunks_created"]})
+        _cache_job(r, job_id, {"status": "done", "chunks_created": result["chunks_created"], "tokens_used": result["tokens_used"]})
         if upload_key:
             r.delete(upload_key)
         logger.info("ingest_task_done", job_id=job_id, **result)
