@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout";
 import { Button, Chip } from "@/components/ui";
-import { patchJournalEntry, deleteJournalEntry, formatRelativeDate } from "@/lib/api";
+import { saveJournalEntry, patchJournalEntry, deleteJournalEntry, formatRelativeDate } from "@/lib/api";
 import type { JournalData, JournalEntry } from "@/lib/api";
 
 function formatSavedDate(iso: string): string {
@@ -143,6 +143,9 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
   const [activeTag, setActiveTag] = useState("all");
   const [data, setData] = useState(initialData);
   const [, startTransition] = useTransition();
+  const [showNoteForm, setShowNoteForm] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
 
   const filtered = activeTag === "all"
     ? data.entries
@@ -159,6 +162,19 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
       await patchJournalEntry(id, { applied: !current });
       router.refresh();
     });
+  }
+
+  async function handleSaveNote() {
+    const trimmed = noteText.trim();
+    if (!trimmed) return;
+    setNoteSaving(true);
+    const entry = await saveJournalEntry({ text: trimmed });
+    setNoteSaving(false);
+    if (entry) {
+      setNoteText("");
+      setShowNoteForm(false);
+      router.refresh();
+    }
   }
 
   function handleDelete(id: string) {
@@ -190,9 +206,33 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
             <div className="text-[14px] text-muted mt-2 leading-relaxed">{statsLine}</div>
           </div>
           <div className="flex gap-2">
-            <Button small>+ Add a private note</Button>
+            <Button small onClick={() => { setShowNoteForm(v => !v); setNoteText(""); }}>
+              {showNoteForm ? "Cancel" : "+ Add a private note"}
+            </Button>
           </div>
         </div>
+
+        {showNoteForm && (
+          <div className="px-10 py-4 border-b border-line bg-paper-alt flex flex-col gap-3">
+            <textarea
+              autoFocus
+              className="w-full bg-paper border border-line rounded-lg px-4 py-3 text-[14px] leading-[1.7] resize-none outline-none focus:border-ink transition-colors"
+              rows={3}
+              placeholder="Write a private note…"
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSaveNote();
+              }}
+            />
+            <div className="flex gap-2 items-center">
+              <Button small primary onClick={handleSaveNote} disabled={noteSaving || !noteText.trim()}>
+                {noteSaving ? "Saving…" : "Save note"}
+              </Button>
+              <span className="font-mono text-[10px] text-muted">⌘↵ to save</span>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 flex overflow-hidden">
           {/* tag + traditions rail */}
