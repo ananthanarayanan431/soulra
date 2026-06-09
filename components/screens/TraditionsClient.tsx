@@ -291,11 +291,14 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
                   disabled={createBusy}
                   className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg bg-ink text-paper disabled:opacity-50"
                 >
-                  {createBusy ? "creating…" : "create tradition"}
+                  {createBusy ? "creating…" : "create tradition →"}
                 </button>
-                {createForm.name.trim() && (
-                  <span className="font-mono text-[10px] text-muted">slug will be: {slugify(createForm.name.trim())}</span>
-                )}
+                <span className="font-mono text-[10px] text-muted">
+                  {createForm.name.trim()
+                    ? `slug: ${slugify(createForm.name.trim())} · `
+                    : ""}
+                  then upload PDF, URL, YouTube, or text
+                </span>
               </div>
               {createError && <div className="font-mono text-[10px] text-red-600 mt-3">{createError}</div>}
             </form>
