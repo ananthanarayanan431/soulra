@@ -7,7 +7,7 @@ import { TraditionCard } from "@/components/conversation/TraditionCard";
 import { ActionPlan } from "@/components/conversation/ActionPlan";
 import { ClarifyingPause } from "@/components/conversation/ClarifyingPause";
 import { useSoulraChat } from "@/hooks/useSoulraChat";
-import { saveJournalEntry } from "@/lib/api";
+import { saveJournalEntry, regenerateSteps } from "@/lib/api";
 import type { Conversation } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -48,7 +48,7 @@ function UserBubble({ text }: { text: string }) {
 
 interface CompletedViewProps {
   situation: string;
-  traditionCards: { tradition: string; author: string; quote: string; citation: string; analysis: string }[];
+  traditionCards: { tradition: string; author: string; quote: string; citation: string; analysis: string; source_passage: string }[];
   actionSteps: { n: string; title: string; body: string }[];
   conversationId: string | null;
 }
@@ -119,6 +119,11 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
                       body: s.body,
                     }))}
                     onSaveToJournal={handleSaveToJournal}
+                    onSuggestDifferent={conversationId ? async () => {
+                      const steps = await regenerateSteps(conversationId);
+                      if (!steps) return null;
+                      return steps.map(s => ({ number: String(s.step_number), title: s.title, body: s.body }));
+                    } : undefined}
                   />
                 )}
 
@@ -177,6 +182,7 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
           quote: c.quote,
           citation: c.citation,
           analysis: c.analysis,
+          source_passage: c.source_passage,
         }))}
         actionSteps={loadedConversation.action_steps.map(s => ({
           n: String(s.step_number),
@@ -332,6 +338,11 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                       body: s.body,
                     }))}
                     onSaveToJournal={phase === "done" ? handleSaveToJournal : undefined}
+                    onSuggestDifferent={phase === "done" && conversationId ? async () => {
+                      const steps = await regenerateSteps(conversationId);
+                      if (!steps) return null;
+                      return steps.map(s => ({ number: String(s.step_number), title: s.title, body: s.body }));
+                    } : undefined}
                   />
                 )}
 

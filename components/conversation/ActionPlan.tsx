@@ -11,11 +11,14 @@ interface ActionStep {
 interface ActionPlanProps {
   steps: ActionStep[];
   onSaveToJournal?: () => Promise<void>;
+  onSuggestDifferent?: () => Promise<ActionStep[] | null>;
 }
 
-export function ActionPlan({ steps, onSaveToJournal }: ActionPlanProps) {
+export function ActionPlan({ steps: initialSteps, onSaveToJournal, onSuggestDifferent }: ActionPlanProps) {
+  const [steps, setSteps] = useState<ActionStep[]>(initialSteps);
   const [committed, setCommitted] = useState<Set<number>>(new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [regenState, setRegenState] = useState<"idle" | "loading">("idle");
 
   function toggle(i: number) {
     setCommitted(prev => {
@@ -23,6 +26,17 @@ export function ActionPlan({ steps, onSaveToJournal }: ActionPlanProps) {
       next.has(i) ? next.delete(i) : next.add(i);
       return next;
     });
+  }
+
+  async function handleSuggestDifferent() {
+    if (!onSuggestDifferent || regenState !== "idle") return;
+    setRegenState("loading");
+    const newSteps = await onSuggestDifferent();
+    setRegenState("idle");
+    if (newSteps) {
+      setSteps(newSteps);
+      setCommitted(new Set());
+    }
   }
 
   async function handleSave() {
@@ -69,8 +83,12 @@ export function ActionPlan({ steps, onSaveToJournal }: ActionPlanProps) {
         <button className="text-xs border border-accent-soft text-accent-soft rounded-full px-3 py-1.5">
           I&apos;ll try one of these
         </button>
-        <button className="text-xs border border-[#3a352d] text-accent-soft rounded-full px-3 py-1.5">
-          Suggest different steps
+        <button
+          onClick={handleSuggestDifferent}
+          disabled={!onSuggestDifferent || regenState !== "idle"}
+          className="text-xs border border-[#3a352d] text-accent-soft rounded-full px-3 py-1.5 disabled:opacity-40 transition-opacity"
+        >
+          {regenState === "loading" ? "Finding new steps…" : "Suggest different steps"}
         </button>
         <span className="flex-1" />
         <button
