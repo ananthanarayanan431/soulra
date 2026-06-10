@@ -11,6 +11,8 @@ import soulra.models.ingest_job    # noqa: F401
 import soulra.models.tradition      # noqa: F401
 import soulra.models.tradition_card # noqa: F401
 import soulra.models.practice       # noqa: F401
+import soulra.models.user           # noqa: F401
+import soulra.models.journal        # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))

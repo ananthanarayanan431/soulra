@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, ForeignKey, Text, String, TIMESTAMP
+from sqlalchemy import Boolean, ForeignKey, JSON, Text, String, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 from soulra.database import Base
@@ -17,7 +17,9 @@ class JournalEntry(Base):
     citation: Mapped[str | None] = mapped_column(String(255), nullable=True)
     analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     personal_note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    tags: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON(), "sqlite"), nullable=False, server_default="{}"
+    )
     applied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     applied_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     saved_at: Mapped[datetime] = mapped_column(

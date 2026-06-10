@@ -9,6 +9,9 @@ from soulra.database import Base, get_db
 from soulra.models.conversation import Conversation, ActionStep  # noqa: F401
 from soulra.models.ingest_job import IngestJob  # noqa: F401
 from soulra.models.tradition import Tradition  # noqa: F401
+from soulra.models.tradition_card import TraditionCard  # noqa: F401
+from soulra.models.user import User, LoginEvent, TokenUsageLog  # noqa: F401
+from soulra.models.journal import JournalEntry  # noqa: F401
 
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
 
