@@ -12,6 +12,7 @@ from soulra.core.exceptions import SoulraException
 from soulra.schemas.responses import ErrorResponse, ErrorDetail
 from soulra.core.logging import configure_logging, logger
 from soulra.core.middleware import RequestIDMiddleware, TimingMiddleware
+from soulra.api.v1.admin import router as admin_router
 from soulra.api.v1.health import router as health_router
 from soulra.api.v1.ingest import router as ingest_router
 from soulra.api.v1.passages import router as passages_router
@@ -139,6 +140,7 @@ app.add_middleware(
 app.add_middleware(TimingMiddleware)
 app.add_middleware(RequestIDMiddleware)
 
+app.include_router(admin_router, prefix="/api/v1")
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(ingest_router, prefix="/api/v1")
 app.include_router(passages_router, prefix="/api/v1")

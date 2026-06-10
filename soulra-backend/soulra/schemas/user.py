@@ -22,7 +22,7 @@ class UserOut(MeOut):
 class LoginEventOut(BaseModel):
     id: uuid.UUID
     user_id: str
-    user_email: str
+    user_email: str = ""
     event_type: str
     ip_address: str | None
     user_agent: str | None
@@ -34,7 +34,7 @@ class LoginEventOut(BaseModel):
 class TokenUsageOut(BaseModel):
     id: uuid.UUID
     user_id: str
-    user_email: str
+    user_email: str = ""
     conversation_id: uuid.UUID | None
     model: str
     prompt_tokens: int
