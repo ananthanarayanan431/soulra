@@ -1,3 +1,5 @@
+import { authedFetch } from "@/lib/api-fetch";
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export interface ConversationTraditionCard {
@@ -23,7 +25,7 @@ export interface Conversation {
 
 export async function getConversation(id: string): Promise<Conversation | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/conversations/${id}`, { cache: "no-store" });
+    const res = await authedFetch(`${BASE}/api/v1/conversations/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return (json.data ?? null) as Conversation | null;
@@ -34,7 +36,7 @@ export async function getConversation(id: string): Promise<Conversation | null> 
 
 export async function listConversations(limit = 6): Promise<Conversation[]> {
   try {
-    const res = await fetch(`${BASE}/api/v1/conversations?limit=${limit}`, {
+    const res = await authedFetch(`${BASE}/api/v1/conversations?limit=${limit}`, {
       cache: "no-store",
     });
     if (!res.ok) return [];
@@ -65,7 +67,7 @@ export interface TraditionsData {
 export async function listTraditions(era?: string): Promise<TraditionsData> {
   const params = era && era !== "all" ? `?era=${encodeURIComponent(era)}` : "";
   try {
-    const res = await fetch(`${BASE}/api/v1/traditions${params}`, { cache: "no-store" });
+    const res = await authedFetch(`${BASE}/api/v1/traditions${params}`, { cache: "no-store" });
     if (!res.ok) return { traditions: [], total_sources: 0, total_passages: 0 };
     const json = await res.json();
     return (json.data ?? { traditions: [], total_sources: 0, total_passages: 0 }) as TraditionsData;
@@ -75,7 +77,7 @@ export async function listTraditions(era?: string): Promise<TraditionsData> {
 }
 
 export async function updateTraditionPreferences(selected: string[]): Promise<void> {
-  await fetch(`${BASE}/api/v1/traditions/preferences`, {
+  await authedFetch(`${BASE}/api/v1/traditions/preferences`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ selected }),
@@ -84,7 +86,7 @@ export async function updateTraditionPreferences(selected: string[]): Promise<vo
 
 export async function listEras(): Promise<string[]> {
   try {
-    const res = await fetch(`${BASE}/api/v1/eras`, { cache: "no-store" });
+    const res = await authedFetch(`${BASE}/api/v1/eras`, { cache: "no-store" });
     if (!res.ok) return [];
     const json = await res.json();
     return (json.data ?? []) as string[];
@@ -102,7 +104,7 @@ export interface TraditionInput {
 }
 
 export async function createTradition(body: TraditionInput): Promise<Tradition> {
-  const res = await fetch(`${BASE}/api/v1/traditions`, {
+  const res = await authedFetch(`${BASE}/api/v1/traditions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -116,7 +118,7 @@ export async function createTradition(body: TraditionInput): Promise<Tradition> 
 }
 
 export async function updateTradition(slug: string, body: Partial<TraditionInput>): Promise<Tradition> {
-  const res = await fetch(`${BASE}/api/v1/traditions/${encodeURIComponent(slug)}`, {
+  const res = await authedFetch(`${BASE}/api/v1/traditions/${encodeURIComponent(slug)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -130,7 +132,7 @@ export async function updateTradition(slug: string, body: Partial<TraditionInput
 }
 
 export async function deleteTradition(slug: string): Promise<void> {
-  const res = await fetch(`${BASE}/api/v1/traditions/${encodeURIComponent(slug)}`, { method: "DELETE" });
+  const res = await authedFetch(`${BASE}/api/v1/traditions/${encodeURIComponent(slug)}`, { method: "DELETE" });
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
     throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
@@ -165,7 +167,7 @@ export interface PracticeArc {
 
 export async function getActivePractice(): Promise<PracticeArc | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/practice/active`, { cache: "no-store" });
+    const res = await authedFetch(`${BASE}/api/v1/practice/active`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return (json.data ?? null) as PracticeArc | null;
@@ -176,7 +178,7 @@ export async function getActivePractice(): Promise<PracticeArc | null> {
 
 export async function completeDay(arcId: string, dayNumber: number): Promise<PracticeArc | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/practice/${arcId}/days/${dayNumber}/complete`, {
+    const res = await authedFetch(`${BASE}/api/v1/practice/${arcId}/days/${dayNumber}/complete`, {
       method: "PATCH",
     });
     if (!res.ok) return null;
@@ -188,7 +190,7 @@ export async function completeDay(arcId: string, dayNumber: number): Promise<Pra
 }
 
 export async function saveReflection(arcId: string, dayNumber: number, text: string): Promise<void> {
-  await fetch(`${BASE}/api/v1/practice/${arcId}/days/${dayNumber}/reflect`, {
+  await authedFetch(`${BASE}/api/v1/practice/${arcId}/days/${dayNumber}/reflect`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
@@ -234,7 +236,7 @@ export async function getJournal(tag?: string): Promise<JournalData> {
   const empty: JournalData = { entries: [], stats: { total: 0, applied_this_month: 0, last_applied_days_ago: null }, tag_counts: [], tradition_counts: [], revisit: null };
   try {
     const params = tag && tag !== "all" ? `?tag=${encodeURIComponent(tag)}` : "";
-    const res = await fetch(`${BASE}/api/v1/journal${params}`, { cache: "no-store" });
+    const res = await authedFetch(`${BASE}/api/v1/journal${params}`, { cache: "no-store" });
     if (!res.ok) return empty;
     const json = await res.json();
     return (json.data ?? empty) as JournalData;
@@ -254,7 +256,7 @@ export async function saveJournalEntry(body: {
   conversation_id?: string;
 }): Promise<JournalEntry | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/journal`, {
+    const res = await authedFetch(`${BASE}/api/v1/journal`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -269,7 +271,7 @@ export async function saveJournalEntry(body: {
 
 export async function patchJournalEntry(id: string, body: { applied?: boolean; tags?: string[]; personal_note?: string }): Promise<JournalEntry | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/journal/${id}`, {
+    const res = await authedFetch(`${BASE}/api/v1/journal/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -283,14 +285,14 @@ export async function patchJournalEntry(id: string, body: { applied?: boolean; t
 }
 
 export async function deleteJournalEntry(id: string): Promise<void> {
-  await fetch(`${BASE}/api/v1/journal/${id}`, { method: "DELETE" });
+  await authedFetch(`${BASE}/api/v1/journal/${id}`, { method: "DELETE" });
 }
 
 export async function regenerateSteps(
   conversationId: string
 ): Promise<{ step_number: number; title: string; body: string }[] | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/conversations/${conversationId}/regenerate-steps`, {
+    const res = await authedFetch(`${BASE}/api/v1/conversations/${conversationId}/regenerate-steps`, {
       method: "POST",
     });
     if (!res.ok) return null;
@@ -311,7 +313,7 @@ export interface IngestJob {
 
 export async function ingestPdf(formData: FormData): Promise<IngestJob | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/ingest/pdf`, {
+    const res = await authedFetch(`${BASE}/api/v1/ingest/pdf`, {
       method: "POST",
       body: formData,
     });
@@ -328,7 +330,7 @@ export async function ingestPdf(formData: FormData): Promise<IngestJob | null> {
 
 export async function ingestUrl(formData: FormData): Promise<IngestJob | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/ingest/url`, { method: "POST", body: formData });
+    const res = await authedFetch(`${BASE}/api/v1/ingest/url`, { method: "POST", body: formData });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
       throw new Error(json?.detail ?? json?.error?.message ?? `HTTP ${res.status}`);
@@ -339,7 +341,7 @@ export async function ingestUrl(formData: FormData): Promise<IngestJob | null> {
 
 export async function ingestText(formData: FormData): Promise<IngestJob | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/ingest/text`, { method: "POST", body: formData });
+    const res = await authedFetch(`${BASE}/api/v1/ingest/text`, { method: "POST", body: formData });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
       throw new Error(json?.detail ?? json?.error?.message ?? `HTTP ${res.status}`);
@@ -350,7 +352,7 @@ export async function ingestText(formData: FormData): Promise<IngestJob | null> 
 
 export async function ingestYoutube(formData: FormData): Promise<IngestJob | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/ingest/youtube`, { method: "POST", body: formData });
+    const res = await authedFetch(`${BASE}/api/v1/ingest/youtube`, { method: "POST", body: formData });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
       throw new Error(json?.detail ?? json?.error?.message ?? `HTTP ${res.status}`);
@@ -361,7 +363,7 @@ export async function ingestYoutube(formData: FormData): Promise<IngestJob | nul
 
 export async function getIngestJob(jobId: string): Promise<IngestJob | null> {
   try {
-    const res = await fetch(`${BASE}/api/v1/ingest/jobs/${jobId}`, { cache: "no-store" });
+    const res = await authedFetch(`${BASE}/api/v1/ingest/jobs/${jobId}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
     return json.data as IngestJob;

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useReducer, useRef } from "react";
+import { useAuth } from "@clerk/nextjs";
 import type { WsServerEvent, WsClientMessage } from "@/lib/ws";
 
 export interface TraditionCard {
@@ -112,36 +113,50 @@ function reducer(state: ChatState, action: Action): ChatState {
 export function useSoulraChat(situation: string) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const wsRef = useRef<WebSocket | null>(null);
+  const { getToken } = useAuth();
 
   useEffect(() => {
     if (!situation) return;
 
-    const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
-    const ws = new WebSocket(`${WS_BASE}/ws/chat`);
-    wsRef.current = ws;
+    let cancelled = false;
+    let ws: WebSocket | null = null;
 
-    ws.onopen = () => {
-      const msg: WsClientMessage = { type: "start", situation };
-      ws.send(JSON.stringify(msg));
-      dispatch({ type: "OPEN" });
-    };
+    (async () => {
+      const token = await getToken();
+      if (cancelled) return;
 
-    ws.onmessage = (ev: MessageEvent<string>) => {
-      try {
-        const event = JSON.parse(ev.data) as WsServerEvent;
-        dispatch({ type: "EVENT", event });
-      } catch {
-        // malformed message — ignore
-      }
-    };
+      const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
+      const url = token
+        ? `${WS_BASE}/ws/chat?token=${encodeURIComponent(token)}`
+        : `${WS_BASE}/ws/chat`;
 
-    ws.onerror = () => dispatch({ type: "WS_ERROR" });
+      ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        const msg: WsClientMessage = { type: "start", situation };
+        ws!.send(JSON.stringify(msg));
+        dispatch({ type: "OPEN" });
+      };
+
+      ws.onmessage = (ev: MessageEvent<string>) => {
+        try {
+          const event = JSON.parse(ev.data) as WsServerEvent;
+          dispatch({ type: "EVENT", event });
+        } catch {
+          // malformed message — ignore
+        }
+      };
+
+      ws.onerror = () => dispatch({ type: "WS_ERROR" });
+    })();
 
     return () => {
-      ws.close();
+      cancelled = true;
+      ws?.close();
       wsRef.current = null;
     };
-  }, [situation]);
+  }, [situation, getToken]);
 
   function sendClarification(choice: string) {
     const msg: WsClientMessage = { type: "clarification", choice };
