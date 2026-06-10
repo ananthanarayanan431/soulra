@@ -23,6 +23,8 @@ dependencies = [
     "celery[redis]>=5.4",
     "redis>=5.0",
     "youtube-transcript-api>=0.6",
+    "pyjwt[crypto]>=2.8",
+    "svix>=1.15",
 ]
 
 [project.optional-dependencies]
