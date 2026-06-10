@@ -3,6 +3,8 @@ import asyncio
 import json
 import uuid
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from soulra.database import AsyncSessionLocal
+from soulra.core.auth import get_current_user_ws
 from soulra.services.practice_builder import save_conversation_and_create_arc
 from soulra.schemas.websocket import (
     StartMessage, ClarificationMessage,
@@ -36,6 +38,14 @@ async def chat_ws(websocket: WebSocket):
         await websocket.close(code=1008)
         return
     await websocket.accept()
+
+    async with AsyncSessionLocal() as auth_db:
+        current_user = await get_current_user_ws(websocket, auth_db)
+        await auth_db.commit()
+    if current_user is None:
+        await websocket.close(code=1008)
+        return
+
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -135,6 +145,7 @@ async def chat_ws(websocket: WebSocket):
                     clarify_ans=clarification.choice,
                     tradition_cards_data=tradition_cards,
                     action_steps_data=action_steps,
+                    user_id=current_user.id,
                 ))
                 break
 

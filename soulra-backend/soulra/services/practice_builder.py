@@ -64,6 +64,7 @@ async def save_conversation_and_create_arc(
     clarify_ans: str,
     tradition_cards_data: list[dict],
     action_steps_data: list[dict],
+    user_id: str,
 ) -> None:
     """Persist conversation, tradition cards, action steps and auto-build a practice arc."""
     if not tradition_cards_data or not action_steps_data:
@@ -76,6 +77,7 @@ async def save_conversation_and_create_arc(
 
             conv = Conversation(
                 id=uuid.UUID(conversation_id),
+                user_id=user_id,
                 thread_id=thread_id,
                 situation=situation,
                 clarify_q=clarify_q or None,

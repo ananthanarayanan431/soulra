@@ -84,9 +84,9 @@ async def test_ingest_url_returns_job_id(client):
 
 
 @pytest.mark.asyncio
-async def test_ingest_job_status_returns_record(client, test_db):
+async def test_ingest_job_status_returns_record(client, test_db, test_user):
     from soulra.models.ingest_job import IngestJob
-    job = IngestJob(id=uuid.uuid4(), status="done", chunks_created=5)
+    job = IngestJob(id=uuid.uuid4(), status="done", chunks_created=5, user_id=test_user.id)
     test_db.add(job)
     await test_db.flush()
 

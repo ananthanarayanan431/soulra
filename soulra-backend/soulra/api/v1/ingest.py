@@ -11,9 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from soulra.config import settings
+from soulra.core.auth import get_current_user
 from soulra.core.logging import logger
 from soulra.database import get_db
 from soulra.models.ingest_job import IngestJob
+from soulra.models.user import User
 from soulra.schemas.ingest import IngestJobResponse
 from soulra.schemas.responses import SuccessResponse
 from soulra.services import cache
@@ -57,8 +59,8 @@ async def _check_url_not_ssrf(url: str) -> None:
             pass
 
 
-async def _create_job(db: AsyncSession, filename: str, tradition: str) -> IngestJob:
-    job = IngestJob(filename=filename, tradition=tradition)
+async def _create_job(db: AsyncSession, filename: str, tradition: str, user_id: str) -> IngestJob:
+    job = IngestJob(filename=filename, tradition=tradition, user_id=user_id)
     db.add(job)
     await db.flush()
     await db.commit()
@@ -90,6 +92,7 @@ async def ingest_pdf(
     author: str = Form(...),
     source: str = Form(...),
     era: str = Form(default="unknown"),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if file.content_type not in ("application/pdf", "application/octet-stream"):
@@ -107,7 +110,7 @@ async def ingest_pdf(
     filename = file.filename or "upload.pdf"
     metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
 
-    job = await _create_job(db, filename, tradition)
+    job = await _create_job(db, filename, tradition, current_user.id)
     job_id_str = str(job.id)
     ukey = cache.upload_key(job_id_str)
 
@@ -131,12 +134,13 @@ async def ingest_text(
     author: str = Form(...),
     source: str = Form(...),
     era: str = Form(default="unknown"),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     filename = f"text-{hashlib.md5(content[:50].encode()).hexdigest()[:8]}.txt"
     metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
 
-    job = await _create_job(db, filename, tradition)
+    job = await _create_job(db, filename, tradition, current_user.id)
     job_id_str = str(job.id)
     ukey = cache.upload_key(job_id_str)
 
@@ -160,12 +164,13 @@ async def ingest_url(
     author: str = Form(...),
     source: str = Form(...),
     era: str = Form(default="unknown"),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     await _check_url_not_ssrf(url)
     metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
 
-    job = await _create_job(db, url, tradition)
+    job = await _create_job(db, url, tradition, current_user.id)
     job_id_str = str(job.id)
 
     await cache.set_job(job_id_str, {"status": "processing"}, ttl=cache._PROCESSING_TTL)
@@ -197,6 +202,7 @@ async def ingest_youtube(
     author: str = Form(...),
     source: str = Form(...),
     era: str = Form(default="unknown"),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     video_id = _extract_youtube_id(url)
@@ -219,7 +225,7 @@ async def ingest_youtube(
     filename = f"youtube-{video_id}.txt"
     metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
 
-    job = await _create_job(db, filename, tradition)
+    job = await _create_job(db, filename, tradition, current_user.id)
     job_id_str = str(job.id)
     ukey = cache.upload_key(job_id_str)
 
@@ -236,7 +242,11 @@ async def ingest_youtube(
     summary="Get ingest job status",
     description="Polls the status of a background ingest job by its UUID. Checks Redis first (fast path), then falls back to Postgres. Returns status, chunk count, token usage, and any error message.",
 )
-async def get_ingest_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_ingest_job(
+    job_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     job_id_str = str(job_id)
 
     # Fast path: Redis cache
@@ -253,7 +263,7 @@ async def get_ingest_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
         logger.warning("redis_cache_miss_fallback", job_id=job_id_str)
 
     # Slow path: Postgres
-    row = (await db.execute(select(IngestJob).where(IngestJob.id == job_id))).scalar_one_or_none()
+    row = (await db.execute(select(IngestJob).where(IngestJob.id == job_id, IngestJob.user_id == current_user.id))).scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Job not found")
     return SuccessResponse(data=IngestJobResponse(

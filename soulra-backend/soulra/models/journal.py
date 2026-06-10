@@ -10,6 +10,9 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     text: Mapped[str] = mapped_column(Text, nullable=False)
     quote: Mapped[str | None] = mapped_column(Text, nullable=True)
     tradition: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)

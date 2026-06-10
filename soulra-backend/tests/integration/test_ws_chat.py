@@ -1,6 +1,16 @@
 # tests/integration/test_ws_chat.py
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
+import pytest
+
+_FAKE_USER = MagicMock(id="user_test_ws")
+
+
+@pytest.fixture(autouse=True)
+def _mock_ws_auth():
+    """All websocket tests connect without a real Clerk token — bypass auth."""
+    with patch("soulra.api.websocket.get_current_user_ws", new=AsyncMock(return_value=_FAKE_USER)):
+        yield
 
 
 def test_ws_chat_accepts_connection():

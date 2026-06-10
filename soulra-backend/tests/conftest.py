@@ -62,58 +62,55 @@ async def other_user(test_db):
     return user
 
 
-@pytest_asyncio.fixture
-async def client(test_db, test_user):
+async def _make_client(test_db, user):
+    """Build an AsyncClient that authenticates as `user` via an X-Test-User-Id header.
+
+    Using a header (read per-request) rather than baking the user into the
+    dependency override allows multiple clients (e.g. `client` and
+    `other_client`) authenticated as different users to be used within the
+    same test, since `app.dependency_overrides` is a single shared dict.
+    """
     from soulra.main import app
+    from fastapi import Request
 
     async def override_get_db():
         yield test_db
 
-    async def override_get_current_user():
-        return test_user
+    async def override_get_current_user(request: Request):
+        user_id = request.headers.get("x-test-user-id")
+        if user_id == user.id:
+            return user
+        result = await test_db.get(type(user), user_id)
+        return result if result is not None else user
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = override_get_current_user
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-Test-User-Id": user.id},
+    ) as c:
         yield c
     app.dependency_overrides.pop(get_db, None)
     app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest_asyncio.fixture
+async def client(test_db, test_user):
+    async for c in _make_client(test_db, test_user):
+        yield c
 
 
 @pytest_asyncio.fixture
 async def admin_client(test_db, admin_user):
-    from soulra.main import app
-
-    async def override_get_db():
-        yield test_db
-
-    async def override_get_current_user():
-        return admin_user
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_get_current_user
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async for c in _make_client(test_db, admin_user):
         yield c
-    app.dependency_overrides.pop(get_db, None)
-    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest_asyncio.fixture
 async def other_client(test_db, other_user):
-    from soulra.main import app
-
-    async def override_get_db():
-        yield test_db
-
-    async def override_get_current_user():
-        return other_user
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_get_current_user
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    async for c in _make_client(test_db, other_user):
         yield c
-    app.dependency_overrides.pop(get_db, None)
-    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture

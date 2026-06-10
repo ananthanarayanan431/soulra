@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
+from soulra.core.auth import get_current_user
 from soulra.database import get_db
 from soulra.models.conversation import Conversation, ActionStep
+from soulra.models.user import User
 from soulra.schemas.conversation import ConversationOut, ActionStepOut
 from soulra.schemas.responses import SuccessResponse
 from soulra.dependencies import get_smart_llm
@@ -42,6 +44,7 @@ class RegenStepsOutput(BaseModel):
 async def list_conversations(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = (
@@ -50,6 +53,7 @@ async def list_conversations(
             selectinload(Conversation.action_steps),
             selectinload(Conversation.tradition_cards),
         )
+        .where(Conversation.user_id == current_user.id)
         .order_by(Conversation.created_at.desc())
         .limit(limit)
         .offset(offset)
@@ -66,6 +70,7 @@ async def list_conversations(
 )
 async def get_conversation(
     conversation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = (
@@ -74,7 +79,7 @@ async def get_conversation(
             selectinload(Conversation.action_steps),
             selectinload(Conversation.tradition_cards),
         )
-        .where(Conversation.id == conversation_id)
+        .where(Conversation.id == conversation_id, Conversation.user_id == current_user.id)
     )
     row = (await db.execute(stmt)).scalar_one_or_none()
     if not row:
@@ -89,6 +94,7 @@ async def get_conversation(
 )
 async def regenerate_steps(
     conversation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = (
@@ -97,7 +103,7 @@ async def regenerate_steps(
             selectinload(Conversation.action_steps),
             selectinload(Conversation.tradition_cards),
         )
-        .where(Conversation.id == conversation_id)
+        .where(Conversation.id == conversation_id, Conversation.user_id == current_user.id)
     )
     conv = (await db.execute(stmt)).scalar_one_or_none()
     if not conv:
@@ -157,9 +163,10 @@ async def regenerate_steps(
 )
 async def delete_conversation(
     conversation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Conversation).where(Conversation.id == conversation_id)
+    stmt = select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == current_user.id)
     row = (await db.execute(stmt)).scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Conversation not found")

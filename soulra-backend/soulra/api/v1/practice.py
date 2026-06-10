@@ -5,10 +5,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from soulra.core.auth import get_current_user
 from soulra.database import get_db
 from soulra.models.conversation import Conversation
 from soulra.models.practice import PracticeArc, PracticeDay
 from soulra.models.tradition_card import TraditionCard
+from soulra.models.user import User
 from soulra.schemas.practice import PracticeArcOut, PracticeDayOut, ReflectBody
 from soulra.schemas.responses import SuccessResponse
 from soulra.services.practice_builder import _build_days
@@ -54,11 +56,12 @@ def _arc_to_out(arc: PracticeArc) -> PracticeArcOut:
     )
 
 
-async def _load_arc(arc_id: uuid.UUID, db: AsyncSession) -> PracticeArc:
+async def _load_arc(arc_id: uuid.UUID, user_id: str, db: AsyncSession) -> PracticeArc:
     stmt = (
         select(PracticeArc)
+        .join(Conversation, Conversation.id == PracticeArc.conversation_id)
         .options(selectinload(PracticeArc.days))
-        .where(PracticeArc.id == arc_id)
+        .where(PracticeArc.id == arc_id, Conversation.user_id == user_id)
     )
     arc = (await db.execute(stmt)).scalar_one_or_none()
     if not arc:
@@ -72,11 +75,15 @@ async def _load_arc(arc_id: uuid.UUID, db: AsyncSession) -> PracticeArc:
     summary="Get active practice arc",
     description="Returns the most recent active 7-day practice arc with all days. Returns null if none exists.",
 )
-async def get_active_practice(db: AsyncSession = Depends(get_db)):
+async def get_active_practice(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     stmt = (
         select(PracticeArc)
+        .join(Conversation, Conversation.id == PracticeArc.conversation_id)
         .options(selectinload(PracticeArc.days))
-        .where(PracticeArc.status == "active")
+        .where(PracticeArc.status == "active", Conversation.user_id == current_user.id)
         .order_by(PracticeArc.created_at.desc())
         .limit(1)
     )
@@ -93,14 +100,16 @@ async def get_active_practice(db: AsyncSession = Depends(get_db)):
 )
 async def create_practice_arc(
     conversation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     # Check if arc already exists for this conversation
     existing = (
         await db.execute(
             select(PracticeArc)
+            .join(Conversation, Conversation.id == PracticeArc.conversation_id)
             .options(selectinload(PracticeArc.days))
-            .where(PracticeArc.conversation_id == conversation_id)
+            .where(PracticeArc.conversation_id == conversation_id, Conversation.user_id == current_user.id)
         )
     ).scalar_one_or_none()
     if existing:
@@ -113,7 +122,7 @@ async def create_practice_arc(
                 selectinload(Conversation.action_steps),
                 selectinload(Conversation.tradition_cards),
             )
-            .where(Conversation.id == conversation_id)
+            .where(Conversation.id == conversation_id, Conversation.user_id == current_user.id)
         )
     ).scalar_one_or_none()
     if not conv:
@@ -149,9 +158,10 @@ async def create_practice_arc(
 async def complete_day(
     arc_id: uuid.UUID,
     day_number: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    arc = await _load_arc(arc_id, db)
+    arc = await _load_arc(arc_id, current_user.id, db)
     day = next((d for d in arc.days if d.day_number == day_number), None)
     if not day:
         raise HTTPException(status_code=404, detail="Day not found")
@@ -176,9 +186,10 @@ async def save_reflection(
     arc_id: uuid.UUID,
     day_number: int,
     body: ReflectBody,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    arc = await _load_arc(arc_id, db)
+    arc = await _load_arc(arc_id, current_user.id, db)
     day = next((d for d in arc.days if d.day_number == day_number), None)
     if not day:
         raise HTTPException(status_code=404, detail="Day not found")
