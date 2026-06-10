@@ -3,7 +3,6 @@ import time
 from datetime import datetime, timezone
 import pytest
 from svix.webhooks import Webhook
-from sqlalchemy import select
 from soulra.config import settings
 from soulra.models.user import User
 

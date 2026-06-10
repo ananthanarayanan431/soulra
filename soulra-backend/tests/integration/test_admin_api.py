@@ -1,5 +1,5 @@
 import pytest
-from soulra.models.user import User, LoginEvent, TokenUsageLog
+from soulra.models.user import LoginEvent, TokenUsageLog
 
 
 @pytest.mark.asyncio
