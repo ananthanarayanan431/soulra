@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     openrouter_api_key: str
     redis_url: str = "redis://localhost:6379/0"
     cohere_api_key: str
+    clerk_publishable_key: str = "pk_test_placeholder"
+    clerk_secret_key: str = "sk_test_placeholder"
+    clerk_jwks_url: str = "https://placeholder.clerk.accounts.dev/.well-known/jwks.json"
+    clerk_webhook_secret: str = "whsec_placeholder"
+    default_token_limit: int = 1_000_000
 
     smart_model: str = "openai/gpt-4o-mini"
     fast_model: str = "openai/gpt-4o-mini"
