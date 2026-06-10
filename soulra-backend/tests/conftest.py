@@ -5,6 +5,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from soulra.core.auth import get_current_user
 from soulra.database import Base, get_db
 from soulra.models.conversation import Conversation, ActionStep  # noqa: F401
 from soulra.models.ingest_job import IngestJob  # noqa: F401
@@ -38,16 +39,81 @@ async def test_db(test_engine):
 
 
 @pytest_asyncio.fixture
-async def client(test_db):
+async def test_user(test_db):
+    user = User(id="user_test_primary", email="primary@example.com", role="user")
+    test_db.add(user)
+    await test_db.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def admin_user(test_db):
+    user = User(id="user_test_admin", email="admin@example.com", role="admin")
+    test_db.add(user)
+    await test_db.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def other_user(test_db):
+    user = User(id="user_test_other", email="other@example.com", role="user")
+    test_db.add(user)
+    await test_db.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def client(test_db, test_user):
     from soulra.main import app
 
     async def override_get_db():
         yield test_db
 
+    async def override_get_current_user():
+        return test_user
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest_asyncio.fixture
+async def admin_client(test_db, admin_user):
+    from soulra.main import app
+
+    async def override_get_db():
+        yield test_db
+
+    async def override_get_current_user():
+        return admin_user
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest_asyncio.fixture
+async def other_client(test_db, other_user):
+    from soulra.main import app
+
+    async def override_get_db():
+        yield test_db
+
+    async def override_get_current_user():
+        return other_user
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+    app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
