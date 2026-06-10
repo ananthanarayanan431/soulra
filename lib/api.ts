@@ -384,3 +384,91 @@ export function formatRelativeDate(iso: string): string {
   const weeks = Math.floor(days / 7);
   return `${weeks} wk ago`;
 }
+
+export interface MeData {
+  id: string;
+  email: string;
+  name: string | null;
+  role: "user" | "admin";
+  token_limit: number;
+  tokens_used: number;
+}
+
+export async function getMe(): Promise<MeData | null> {
+  try {
+    const res = await authedFetch(`${BASE}/api/v1/me`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()).data as MeData;
+  } catch {
+    return null;
+  }
+}
+
+export interface AdminUser extends MeData {
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export async function listAdminUsers(limit = 50, offset = 0): Promise<Paginated<AdminUser>> {
+  const res = await authedFetch(`${BASE}/api/v1/admin/users?limit=${limit}&offset=${offset}`, { cache: "no-store" });
+  if (!res.ok) return { items: [], total: 0, limit, offset };
+  return (await res.json()).data as Paginated<AdminUser>;
+}
+
+export async function updateAdminUser(
+  userId: string,
+  body: { role?: "user" | "admin"; token_limit?: number }
+): Promise<AdminUser | null> {
+  const res = await authedFetch(`${BASE}/api/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return (await res.json()).data as AdminUser;
+}
+
+export interface AdminLoginEvent {
+  id: string;
+  user_id: string;
+  user_email: string;
+  event_type: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export async function listLoginEvents(limit = 50, offset = 0, userId?: string): Promise<Paginated<AdminLoginEvent>> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (userId) params.set("user_id", userId);
+  const res = await authedFetch(`${BASE}/api/v1/admin/login-events?${params}`, { cache: "no-store" });
+  if (!res.ok) return { items: [], total: 0, limit, offset };
+  return (await res.json()).data as Paginated<AdminLoginEvent>;
+}
+
+export interface AdminTokenUsage {
+  id: string;
+  user_id: string;
+  user_email: string;
+  conversation_id: string | null;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  created_at: string;
+}
+
+export async function listTokenUsage(limit = 50, offset = 0, userId?: string): Promise<Paginated<AdminTokenUsage>> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (userId) params.set("user_id", userId);
+  const res = await authedFetch(`${BASE}/api/v1/admin/usage?${params}`, { cache: "no-store" });
+  if (!res.ok) return { items: [], total: 0, limit, offset };
+  return (await res.json()).data as Paginated<AdminTokenUsage>;
+}
