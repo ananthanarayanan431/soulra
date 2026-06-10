@@ -10,6 +10,13 @@ class SuccessResponse(BaseModel, Generic[T]):
     data: T
 
 
+class PaginatedData(BaseModel, Generic[T]):
+    items: list[T]
+    total: int
+    limit: int
+    offset: int
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

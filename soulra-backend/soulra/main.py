@@ -19,6 +19,7 @@ from soulra.api.v1.conversations import router as conversations_router
 from soulra.api.v1.traditions import router as traditions_router
 from soulra.api.v1.practice import router as practice_router
 from soulra.api.v1.journal import router as journal_router
+from soulra.api.v1.me import router as me_router
 from soulra.api.websocket import router as ws_router, set_graph
 from soulra.services import cache as job_cache
 
@@ -145,6 +146,7 @@ app.include_router(conversations_router, prefix="/api/v1")
 app.include_router(traditions_router, prefix="/api/v1")
 app.include_router(practice_router, prefix="/api/v1")
 app.include_router(journal_router, prefix="/api/v1")
+app.include_router(me_router, prefix="/api/v1")
 app.include_router(ws_router)
 
 
