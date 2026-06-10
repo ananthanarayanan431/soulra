@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 
-_FAKE_USER = MagicMock(id="user_test_ws")
+_FAKE_USER = MagicMock(id="user_test_ws", tokens_used=0, token_limit=1_000_000)
 
 
 @pytest.fixture(autouse=True)
@@ -194,6 +194,25 @@ def test_websocket_uses_make_initial_state():
         "websocket.py must call make_initial_state() — hardcoded dict drifts from SoulraState"
     assert "initial_input = {" not in ws_source, \
         "hardcoded initial_input dict found — replace with make_initial_state()"
+
+
+def test_ws_chat_rejects_when_token_limit_exceeded():
+    """A user who has already hit their token_limit gets TOKEN_LIMIT_EXCEEDED and the socket closes."""
+    from soulra.main import app
+    from soulra.api.websocket import set_graph
+
+    over_limit_user = MagicMock(id="user_over_limit", tokens_used=100, token_limit=100)
+    set_graph(MagicMock())
+
+    try:
+        with patch("soulra.api.websocket.get_current_user_ws", new=AsyncMock(return_value=over_limit_user)):
+            client = TestClient(app)
+            with client.websocket_connect("/ws/chat") as ws:
+                msg = ws.receive_json()
+                assert msg["type"] == "error"
+                assert msg["code"] == "TOKEN_LIMIT_EXCEEDED"
+    finally:
+        set_graph(None)
 
 
 def test_ws_chat_rejects_disallowed_origin():

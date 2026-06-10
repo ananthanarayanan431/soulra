@@ -3,9 +3,11 @@ import asyncio
 import json
 import uuid
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from langchain_core.callbacks.usage import get_usage_metadata_callback
 from soulra.database import AsyncSessionLocal
 from soulra.core.auth import get_current_user_ws
 from soulra.services.practice_builder import save_conversation_and_create_arc
+from soulra.services.token_usage import persist_token_usage
 from soulra.schemas.websocket import (
     StartMessage, ClarificationMessage,
     StatusEvent, ClarifyEvent, ChipsEvent,
@@ -47,10 +49,17 @@ async def chat_ws(websocket: WebSocket):
         return
 
     thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
 
     async def send(payload: dict) -> None:
         await websocket.send_text(json.dumps(payload))
+
+    if current_user.tokens_used >= current_user.token_limit:
+        await send(ErrorEvent(
+            message="Token usage limit reached. Contact an administrator to increase your limit.",
+            code="TOKEN_LIMIT_EXCEEDED",
+        ).model_dump())
+        await websocket.close()
+        return
 
     graph = get_graph()
     if graph is None:
@@ -59,6 +68,7 @@ async def chat_ws(websocket: WebSocket):
         return
 
     try:
+      with get_usage_metadata_callback() as usage_cb:
         # Phase 1: receive situation, run graph until interrupt at retrieve_refined
         try:
             raw = await asyncio.wait_for(websocket.receive_json(), timeout=WS_RECEIVE_TIMEOUT)
@@ -71,6 +81,7 @@ async def chat_ws(websocket: WebSocket):
         await send(StatusEvent(node="intake").model_dump())
 
         initial_input = make_initial_state(msg.situation)
+        config = {"configurable": {"thread_id": thread_id}, "callbacks": [usage_cb]}
 
         clarify_done = False
         clarify_q = ""
@@ -148,6 +159,14 @@ async def chat_ws(websocket: WebSocket):
                     user_id=current_user.id,
                 ))
                 break
+
+        async with AsyncSessionLocal() as usage_db:
+            await persist_token_usage(
+                usage_db,
+                user_id=current_user.id,
+                conversation_id=uuid.UUID(conv_id) if tradition_cards and action_steps else None,
+                usage_metadata=usage_cb.usage_metadata,
+            )
 
         await send(DoneEvent(conversation_id=conv_id).model_dump())
 
