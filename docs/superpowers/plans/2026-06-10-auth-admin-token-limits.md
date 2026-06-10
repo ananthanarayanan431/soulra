@@ -255,6 +255,24 @@ from soulra.models.user import User, LoginEvent, TokenUsageLog  # noqa: F401
 from soulra.models.journal import JournalEntry  # noqa: F401
 ```
 
+**Pre-existing baseline issue you will now hit:** `JournalEntry.tags` is declared as `ARRAY(Text)` (a Postgres-only type with no SQLite DDL compiler). Today this only breaks tests in an order-dependent way (whichever test imports `soulra.main.app` first ends up registering `journal_entries` on `Base.metadata`, breaking `create_all` for every `test_engine` fixture created afterward in the same process). Importing `soulra.models.journal` directly in `conftest.py` makes `journal_entries` registered for *every* test run, so this becomes a deterministic failure (`AttributeError: 'SQLiteTypeCompiler' object has no attribute 'visit_ARRAY'`) across the whole suite unless fixed now.
+
+Fix it at the source: in `soulra-backend/soulra/models/journal.py`, change the `tags` column to use SQLAlchemy's `with_variant` so it renders as `JSON` on SQLite (used in tests) and stays `ARRAY(Text)` on Postgres (production). Add `from sqlalchemy import JSON` to the imports, then change:
+
+```python
+    tags: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default="{}")
+```
+
+to:
+
+```python
+    tags: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON(), "sqlite"), nullable=False, server_default="{}"
+    )
+```
+
+`with_variant` handles both DDL compilation and Python-side bind/result processing per-dialect, so JSON lists round-trip correctly under SQLite while Postgres keeps using its native array type — no migration needed since this only changes how the existing column type compiles per-dialect, not the Postgres schema.
+
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `cd soulra-backend && .venv/bin/pytest tests/unit/test_user_model.py -v`
@@ -368,7 +386,7 @@ def downgrade() -> None:
 - [ ] **Step 8: Run the full unit test suite to confirm nothing else broke**
 
 Run: `cd soulra-backend && .venv/bin/pytest tests/unit -v`
-Expected: PASS (existing tests still green; new model tests pass)
+Expected: PASS for the new model tests. Two pre-existing failures unrelated to this plan will still be present and can be ignored: `tests/unit/test_config.py::test_settings_defaults` (asserts a stale default model name) and `tests/unit/test_ingest_api.py::test_run_ingestion_task_*` (reference a function that was already removed from `soulra/api/v1/ingest.py`). Do not fix these as part of this plan — confirm only that no *new* failures appear beyond these two.
 
 - [ ] **Step 9: Commit**
 
