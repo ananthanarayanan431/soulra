@@ -15,7 +15,7 @@ async def test_persist_token_usage_writes_log_and_increments_user(test_db, test_
 
     logs = (await test_db.execute(select(TokenUsageLog).where(TokenUsageLog.user_id == test_user.id))).scalars().all()
     assert len(logs) == 2
-    assert sum(l.total_tokens for l in logs) == 165
+    assert sum(log.total_tokens for log in logs) == 165
 
     refreshed = await test_db.get(User, test_user.id)
     assert refreshed.tokens_used == 165

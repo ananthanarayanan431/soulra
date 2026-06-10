@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +11,7 @@ async def persist_token_usage(
     db: AsyncSession,
     user_id: str,
     conversation_id: uuid.UUID | None,
-    usage_metadata: dict[str, dict],
+    usage_metadata: dict[str, Any],
 ) -> int:
     """Write one TokenUsageLog row per model and increment the user's tokens_used.
 
