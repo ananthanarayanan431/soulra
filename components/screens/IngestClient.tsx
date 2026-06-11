@@ -397,7 +397,11 @@ export function IngestClient() {
                   className="hidden"
                   onChange={e => {
                     setFileName(e.target.files?.[0]?.name ?? null);
-                    setJobState({ phase: "idle" });
+                    setJobState(prev =>
+                      prev.phase === "uploading" || prev.phase === "processing"
+                        ? prev
+                        : { phase: "idle" }
+                    );
                   }}
                 />
               </div>
