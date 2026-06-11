@@ -1,10 +1,17 @@
 from typing import IO
+import tiktoken
 from langchain_postgres import PGVector
 from langchain_core.documents import Document
 from soulra.services.ingestion.pdf_parser import extract_text_from_pdf
 from soulra.services.ingestion.chunker import chunk_documents
 from soulra.core.exceptions import IngestionError
 from soulra.core.logging import logger
+
+_ENC = tiktoken.get_encoding("cl100k_base")
+
+
+def _count_tokens(chunks: list[Document]) -> int:
+    return sum(len(_ENC.encode(c.page_content)) for c in chunks)
 
 
 def _extract_documents(file: IO[bytes], filename: str, metadata: dict) -> list[Document]:
@@ -39,9 +46,12 @@ class IngestionPipeline:
             if not chunks:
                 raise IngestionError(f"No chunks produced from {filename}")
 
+            tokens_used = _count_tokens(chunks)
             await self.vectorstore.aadd_documents(chunks)
-            logger.info("ingestion_complete", filename=filename, chunks=len(chunks))
-            return {"chunks_created": len(chunks), "tokens_used": 0}
+            logger.info(
+                "ingestion_complete", filename=filename, chunks=len(chunks), tokens=tokens_used
+            )
+            return {"chunks_created": len(chunks), "tokens_used": tokens_used}
         except IngestionError:
             raise
         except Exception as e:

@@ -1,4 +1,6 @@
 # app/graph/nodes/clarify.py
+from typing import cast
+
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from soulra.graph.state import SoulraState
@@ -29,10 +31,10 @@ def create_clarify_node(llm: ChatOpenAI):
 
     async def clarify(state: SoulraState) -> dict:
         prompt = CLARIFY_PROMPT.format(situation=state["situation"])
-        result: ClarifyOutput = await structured_llm.ainvoke(prompt)
+        result = cast(ClarifyOutput, await structured_llm.ainvoke(prompt))
         fallbacks = [f"Clarify option {i + 1}" for i in range(4)]
         chips = result.chips[:4]
-        chips = chips + fallbacks[len(chips):]
+        chips = chips + fallbacks[len(chips) :]
         return {
             "clarify_question": result.question,
             "clarify_chips": chips,

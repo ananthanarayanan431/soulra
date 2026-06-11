@@ -44,13 +44,17 @@ function EntryRow({
   entry,
   onToggleApplied,
   onDelete,
+  onSaveNote,
 }: {
   entry: JournalEntry;
   onToggleApplied: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
+  onSaveNote: (id: string, note: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const hasDetail = !!(entry.quote || entry.analysis);
+  const [noteText, setNoteText] = useState(entry.personal_note ?? "");
+  const [noteSaving, setNoteSaving] = useState(false);
+  const hasDetail = true;
 
   return (
     <div>
@@ -96,7 +100,7 @@ function EntryRow({
       </div>
 
       {/* expanded detail panel */}
-      {open && hasDetail && (
+      {open && (
         <div className="px-6 pb-6 ml-[44px] flex flex-col gap-4">
           {entry.quote && (
             <blockquote className="font-serif text-[20px] leading-[1.6] italic border-l-2 border-ink pl-5 text-ink">
@@ -115,6 +119,34 @@ function EntryRow({
               ))}
             </div>
           )}
+
+          {/* Personal reflection */}
+          <div className="flex flex-col gap-2 mt-1">
+            <div className="font-mono text-[10px] text-muted uppercase tracking-widest">
+              your reflection
+            </div>
+            <textarea
+              className="w-full bg-paper border border-line rounded-lg px-3 py-2.5 text-[13px] leading-[1.7] resize-none outline-none focus:border-ink transition-colors text-ink placeholder:text-ink/30"
+              rows={3}
+              placeholder="What does this mean to you? How have you seen it show up?"
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              onBlur={async () => {
+                const trimmed = noteText.trim();
+                if (trimmed === (entry.personal_note ?? "").trim()) return;
+                setNoteSaving(true);
+                try {
+                  await onSaveNote(entry.id, trimmed);
+                } finally {
+                  setNoteSaving(false);
+                }
+              }}
+            />
+            {noteSaving && (
+              <span className="font-mono text-[10px] text-muted">Saving…</span>
+            )}
+          </div>
+
           <div className="flex gap-3 items-center">
             <button
               onClick={() => onToggleApplied(entry.id, entry.applied)}
@@ -161,6 +193,14 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
     });
   }
 
+  async function handleSaveNote(id: string, note: string) {
+    await patchJournalEntry(id, { personal_note: note });
+    setData(d => ({
+      ...d,
+      entries: d.entries.map(e => e.id === id ? { ...e, personal_note: note || null } : e),
+    }));
+  }
+
   function handleDelete(id: string) {
     setData(d => ({ ...d, entries: d.entries.filter(e => e.id !== id) }));
     startTransition(async () => {
@@ -188,9 +228,6 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
             <div className="font-mono text-[10px] text-muted uppercase tracking-widest">your journal</div>
             <div className="font-serif text-[36px] leading-tight mt-1">Wisdom you&rsquo;ve kept</div>
             <div className="text-[14px] text-muted mt-2 leading-relaxed">{statsLine}</div>
-          </div>
-          <div className="flex gap-2">
-            <Button small>+ Add a private note</Button>
           </div>
         </div>
 
@@ -256,6 +293,7 @@ export function JournalClient({ initialData }: { initialData: JournalData }) {
                       entry={entry}
                       onToggleApplied={handleToggleApplied}
                       onDelete={handleDelete}
+                      onSaveNote={handleSaveNote}
                     />
                   </div>
                 ))}

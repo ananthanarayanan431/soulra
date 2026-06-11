@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     openrouter_api_key: str
     redis_url: str = "redis://localhost:6379/0"
     cohere_api_key: str
+    clerk_publishable_key: str = "pk_test_placeholder"
+    clerk_secret_key: str = "sk_test_placeholder"
+    clerk_jwks_url: str = "https://placeholder.clerk.accounts.dev/.well-known/jwks.json"
+    clerk_webhook_secret: str = "whsec_placeholder"
+    default_token_limit: int = 1_000_000
 
     smart_model: str = "openai/gpt-4o-mini"
     fast_model: str = "openai/gpt-4o-mini"
@@ -32,12 +37,12 @@ class Settings(BaseSettings):
 
 def get_settings() -> "Settings":
     """Return a Settings instance. Deferred so imports don't fail in test environments."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]
 
 
 # Module-level singleton — only materialised outside of test collection.
 # Tests that need an unconfigured Settings should call Settings() directly.
 try:
-    settings = Settings()
+    settings = Settings()  # type: ignore[call-arg]
 except ValidationError:  # pragma: no cover
     settings = None  # type: ignore[assignment]

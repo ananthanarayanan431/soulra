@@ -35,12 +35,21 @@ def test_graph_contains_rerank_nodes():
 
 def test_route_after_grade_returns_rewrite_when_not_relevant():
     from soulra.graph.edges import route_after_grade
+
     state = {
-        "grade_result": "not_relevant", "rewrite_count": 0,
-        "situation": "", "tradition_hints": [], "query": "", "retrieved_docs": [],
+        "grade_result": "not_relevant",
+        "rewrite_count": 0,
+        "situation": "",
+        "tradition_hints": [],
+        "query": "",
+        "retrieved_docs": [],
         "reranked_docs": [],
-        "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
-        "refined_docs": [], "tradition_cards": [], "action_steps": [],
+        "clarify_question": "",
+        "clarify_chips": [],
+        "clarify_answer": None,
+        "refined_docs": [],
+        "tradition_cards": [],
+        "action_steps": [],
         "messages": [],
     }
     assert route_after_grade(state) == "rewrite_query"
@@ -48,12 +57,21 @@ def test_route_after_grade_returns_rewrite_when_not_relevant():
 
 def test_route_after_grade_returns_clarify_when_relevant():
     from soulra.graph.edges import route_after_grade
+
     state = {
-        "grade_result": "relevant", "rewrite_count": 0,
-        "situation": "", "tradition_hints": [], "query": "", "retrieved_docs": [],
+        "grade_result": "relevant",
+        "rewrite_count": 0,
+        "situation": "",
+        "tradition_hints": [],
+        "query": "",
+        "retrieved_docs": [],
         "reranked_docs": [],
-        "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
-        "refined_docs": [], "tradition_cards": [], "action_steps": [],
+        "clarify_question": "",
+        "clarify_chips": [],
+        "clarify_answer": None,
+        "refined_docs": [],
+        "tradition_cards": [],
+        "action_steps": [],
         "messages": [],
     }
     assert route_after_grade(state) == "clarify"
@@ -61,12 +79,21 @@ def test_route_after_grade_returns_clarify_when_relevant():
 
 def test_route_after_grade_forces_clarify_after_max_rewrites():
     from soulra.graph.edges import route_after_grade
+
     state = {
-        "grade_result": "not_relevant", "rewrite_count": 2,
-        "situation": "", "tradition_hints": [], "query": "", "retrieved_docs": [],
+        "grade_result": "not_relevant",
+        "rewrite_count": 2,
+        "situation": "",
+        "tradition_hints": [],
+        "query": "",
+        "retrieved_docs": [],
         "reranked_docs": [],
-        "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
-        "refined_docs": [], "tradition_cards": [], "action_steps": [],
+        "clarify_question": "",
+        "clarify_chips": [],
+        "clarify_answer": None,
+        "refined_docs": [],
+        "tradition_cards": [],
+        "action_steps": [],
         "messages": [],
     }
     assert route_after_grade(state) == "clarify"

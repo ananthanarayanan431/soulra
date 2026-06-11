@@ -25,12 +25,20 @@ def build_graph(
 
     workflow.add_node("intake", create_intake_node(fast_llm))
     workflow.add_node("retrieve", create_retrieve_node(retriever))
-    workflow.add_node("rerank", create_rerank_node(cohere_client, input_key="retrieved_docs", output_key="reranked_docs"))
+    workflow.add_node(
+        "rerank",
+        create_rerank_node(cohere_client, input_key="retrieved_docs", output_key="reranked_docs"),
+    )
     workflow.add_node("grade_docs", create_grade_node(fast_llm))
     workflow.add_node("rewrite_query", create_rewrite_node(fast_llm))
     workflow.add_node("clarify", create_clarify_node(fast_llm))
-    workflow.add_node("retrieve_refined", create_retrieve_node(retriever, output_key="refined_docs"))
-    workflow.add_node("rerank_refined", create_rerank_node(cohere_client, input_key="refined_docs", output_key="reranked_docs"))
+    workflow.add_node(
+        "retrieve_refined", create_retrieve_node(retriever, output_key="refined_docs")
+    )
+    workflow.add_node(
+        "rerank_refined",
+        create_rerank_node(cohere_client, input_key="refined_docs", output_key="reranked_docs"),
+    )
     workflow.add_node("synthesize", create_synthesize_node(smart_llm))
 
     workflow.add_edge(START, "intake")

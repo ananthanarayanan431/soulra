@@ -1,4 +1,6 @@
 # app/graph/nodes/rewrite.py
+from typing import cast
+
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from soulra.graph.state import SoulraState
@@ -24,7 +26,7 @@ def create_rewrite_node(llm: ChatOpenAI):
             situation=state["situation"],
             query=state["query"],
         )
-        result: RewriteOutput = await structured_llm.ainvoke(prompt)
+        result = cast(RewriteOutput, await structured_llm.ainvoke(prompt))
         return {
             "query": result.rewritten_query,
             "rewrite_count": state["rewrite_count"] + 1,

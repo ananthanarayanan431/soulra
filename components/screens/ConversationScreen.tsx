@@ -2,12 +2,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout";
-import { Button, Input } from "@/components/ui";
+import { Button, Chip, Input } from "@/components/ui";
 import { TraditionCard } from "@/components/conversation/TraditionCard";
 import { ActionPlan } from "@/components/conversation/ActionPlan";
 import { ClarifyingPause } from "@/components/conversation/ClarifyingPause";
 import { useSoulraChat } from "@/hooks/useSoulraChat";
-import { saveJournalEntry } from "@/lib/api";
+import { saveJournalEntry, regenerateSteps } from "@/lib/api";
 import type { Conversation } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -48,12 +48,15 @@ function UserBubble({ text }: { text: string }) {
 
 interface CompletedViewProps {
   situation: string;
-  traditionCards: { tradition: string; author: string; quote: string; citation: string; analysis: string }[];
+  traditionCards: { tradition: string; author: string; quote: string; citation: string; analysis: string; source_passage: string }[];
   actionSteps: { n: string; title: string; body: string }[];
   conversationId: string | null;
 }
 
 function CompletedView({ situation, traditionCards, actionSteps, conversationId }: CompletedViewProps) {
+  const router = useRouter();
+  const [followUp, setFollowUp] = useState("");
+
   async function handleSaveToJournal() {
     for (const card of traditionCards) {
       await saveJournalEntry({
@@ -86,6 +89,7 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
           <UserBubble text={situation} />
 
           {traditionCards.length > 0 && (
+
             <div className="flex gap-3.5">
               <div className="w-8 flex-shrink-0" />
               <div className="flex-1 flex flex-col gap-4">
@@ -106,6 +110,7 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
                     explanation={t.analysis}
                     citationBook={t.citation}
                     citationChapter=""
+                    sourcePassage={t.source_passage}
                     initiallyExpanded={i === 0}
                   />
                 ))}
@@ -118,6 +123,11 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
                       body: s.body,
                     }))}
                     onSaveToJournal={handleSaveToJournal}
+                    onSuggestDifferent={conversationId ? async () => {
+                      const steps = await regenerateSteps(conversationId);
+                      if (!steps) return null;
+                      return steps.map(s => ({ number: String(s.step_number), title: s.title, body: s.body }));
+                    } : undefined}
                   />
                 )}
 
@@ -130,6 +140,20 @@ function CompletedView({ situation, traditionCards, actionSteps, conversationId 
               </div>
             </div>
           )}
+        </div>
+
+        <div className="px-9 pb-6 pt-4 border-t border-line flex-shrink-0">
+          <div className="max-w-[820px] mx-auto">
+            <Input
+              placeholder="Ask a follow-up…"
+              value={followUp}
+              onChange={setFollowUp}
+              onSubmit={() => {
+                const trimmed = followUp.trim();
+                if (trimmed) router.push(`/chat?q=${encodeURIComponent(trimmed)}`);
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -176,6 +200,7 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
           quote: c.quote,
           citation: c.citation,
           analysis: c.analysis,
+          source_passage: c.source_passage,
         }))}
         actionSteps={loadedConversation.action_steps.map(s => ({
           n: String(s.step_number),
@@ -203,6 +228,13 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
 
   // No situation — show entry input
   if (!situation) {
+    const PROMPTS = [
+      "I keep saying yes when I mean no",
+      "I'm carrying grief that won't move",
+      "Who am I outside this role?",
+      "I can't stop replaying what happened",
+    ];
+
     return (
       <div className="flex h-screen bg-paper overflow-hidden">
         <Sidebar />
@@ -210,7 +242,7 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
           <div className="font-serif text-[32px] leading-[1.3] text-center max-w-[500px]">
             What is asking for your attention today?
           </div>
-          <div className="w-full max-w-[580px]">
+          <div className="w-full max-w-[580px] flex flex-col gap-3">
             <Input
               big
               placeholder="Tell Soulra what's on your mind…"
@@ -221,6 +253,17 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                 if (trimmed) router.push(`/chat?q=${encodeURIComponent(trimmed)}`);
               }}
             />
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className="font-mono text-[10px] text-muted">or try:</span>
+              {PROMPTS.map(p => (
+                <Chip
+                  key={p}
+                  onClick={() => router.push(`/chat?q=${encodeURIComponent(p)}`)}
+                >
+                  &ldquo;{p}&rdquo;
+                </Chip>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -300,6 +343,7 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                     explanation={t.analysis}
                     citationBook={t.citation}
                     citationChapter=""
+                    sourcePassage={t.source_passage}
                     initiallyExpanded={i === 0}
                   />
                 ))}
@@ -312,6 +356,11 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                       body: s.body,
                     }))}
                     onSaveToJournal={phase === "done" ? handleSaveToJournal : undefined}
+                    onSuggestDifferent={phase === "done" && conversationId ? async () => {
+                      const steps = await regenerateSteps(conversationId);
+                      if (!steps) return null;
+                      return steps.map(s => ({ number: String(s.step_number), title: s.title, body: s.body }));
+                    } : undefined}
                   />
                 )}
 
@@ -360,6 +409,10 @@ export function ConversationScreen({ situation, loadedConversation }: Props) {
                   placeholder="Ask a follow-up…"
                   value={reply}
                   onChange={setReply}
+                  onSubmit={() => {
+                    const trimmed = reply.trim();
+                    if (trimmed) router.push(`/chat?q=${encodeURIComponent(trimmed)}`);
+                  }}
                 />
               )}
             </div>

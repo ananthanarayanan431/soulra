@@ -1,6 +1,6 @@
 import pytest
 import uuid
-from soulra.models.conversation import Conversation, ActionStep
+from soulra.models.conversation import Conversation
 
 
 @pytest.mark.asyncio
@@ -13,12 +13,13 @@ async def test_list_conversations_returns_empty(client):
 
 
 @pytest.mark.asyncio
-async def test_get_conversation_returns_detail(client, test_db):
+async def test_get_conversation_returns_detail(client, test_db, test_user):
     conv = Conversation(
         thread_id="thread-abc",
         situation="I say yes too much.",
         clarify_q="Is this internal?",
         clarify_ans="Yes, internal.",
+        user_id=test_user.id,
     )
     test_db.add(conv)
     await test_db.flush()
@@ -38,8 +39,8 @@ async def test_get_conversation_returns_404_for_unknown(client):
 
 
 @pytest.mark.asyncio
-async def test_delete_conversation_removes_record(client, test_db):
-    conv = Conversation(thread_id="thread-del", situation="test")
+async def test_delete_conversation_removes_record(client, test_db, test_user):
+    conv = Conversation(thread_id="thread-del", situation="test", user_id=test_user.id)
     test_db.add(conv)
     await test_db.flush()
 
@@ -51,11 +52,13 @@ async def test_delete_conversation_removes_record(client, test_db):
 
 
 @pytest.mark.asyncio
-async def test_list_conversations_supports_offset(client, test_db):
+async def test_list_conversations_supports_offset(client, test_db, test_user):
     """GET /conversations must support offset-based pagination."""
     # Create 3 conversations
     for i in range(3):
-        c = Conversation(thread_id=f"thread-offset-{i}", situation=f"situation {i}")
+        c = Conversation(
+            thread_id=f"thread-offset-{i}", situation=f"situation {i}", user_id=test_user.id
+        )
         test_db.add(c)
     await test_db.flush()
 

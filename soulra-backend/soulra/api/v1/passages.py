@@ -8,6 +8,7 @@ router = APIRouter(tags=["passages"])
 
 def _get_vs():
     from soulra.dependencies import get_vectorstore
+
     return get_vectorstore()
 
 
@@ -20,7 +21,9 @@ def _get_vs():
 async def list_passages(
     tradition: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),  # reserved: applied when similarity search is replaced by SQL listing
+    offset: int = Query(
+        default=0, ge=0
+    ),  # reserved: applied when similarity search is replaced by SQL listing
 ):
     vectorstore = _get_vs()
     filter_kwargs: dict = {"k": limit}
@@ -37,15 +40,17 @@ async def list_passages(
         if not pid:
             logger.warning("passage_missing_id", metadata=d.metadata)
             continue
-        passages.append(PassageOut(
-            id=pid,
-            content=d.page_content,
-            tradition=d.metadata.get("tradition"),
-            author=d.metadata.get("author"),
-            source=d.metadata.get("source"),
-            era=d.metadata.get("era"),
-            citation=d.metadata.get("citation"),
-        ))
+        passages.append(
+            PassageOut(
+                id=pid,
+                content=d.page_content,
+                tradition=d.metadata.get("tradition"),
+                author=d.metadata.get("author"),
+                source=d.metadata.get("source"),
+                era=d.metadata.get("era"),
+                citation=d.metadata.get("citation"),
+            )
+        )
     return SuccessResponse(data=passages)
 
 

@@ -21,9 +21,7 @@ def configure_logging() -> None:
     shared: list = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(
-            fmt="%H:%M:%S" if log_format == "pretty" else "iso"
-        ),
+        structlog.processors.TimeStamper(fmt="%H:%M:%S" if log_format == "pretty" else "iso"),
     ]
 
     if log_format == "json":

@@ -11,6 +11,7 @@ class JournalEntryOut(BaseModel):
     author: str | None
     citation: str | None
     analysis: str | None
+    personal_note: str | None
     tags: list[str]
     applied: bool
     applied_at: datetime | None
@@ -53,3 +54,4 @@ class CreateJournalEntry(BaseModel):
 class PatchJournalEntry(BaseModel):
     applied: bool | None = None
     tags: list[str] | None = None
+    personal_note: str | None = None

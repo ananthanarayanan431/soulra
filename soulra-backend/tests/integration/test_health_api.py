@@ -26,8 +26,7 @@ async def test_404_returns_not_found_code(client):
     resp = await client.get("/api/v1/conversations/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404
     body = resp.json()
-    assert body["error"]["code"] == "NOT_FOUND", \
-        f"Expected NOT_FOUND, got {body['error']['code']}"
+    assert body["error"]["code"] == "NOT_FOUND", f"Expected NOT_FOUND, got {body['error']['code']}"
 
 
 @pytest.mark.asyncio
@@ -37,5 +36,6 @@ async def test_validation_error_returns_validation_error_code(client):
     resp = await client.get("/api/v1/conversations/not-a-uuid")
     assert resp.status_code == 422
     body = resp.json()
-    assert body["error"]["code"] == "VALIDATION_ERROR", \
+    assert body["error"]["code"] == "VALIDATION_ERROR", (
         f"Expected VALIDATION_ERROR, got {body['error']['code']}"
+    )

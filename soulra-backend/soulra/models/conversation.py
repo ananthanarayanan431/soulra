@@ -1,16 +1,21 @@
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, Text, String, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from soulra.database import Base
 
+if TYPE_CHECKING:
+    from soulra.models.tradition_card import TraditionCard
+
 
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     thread_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     situation: Mapped[str] = mapped_column(Text, nullable=False)
@@ -25,18 +30,17 @@ class Conversation(Base):
     action_steps: Mapped[list["ActionStep"]] = relationship(
         back_populates="conversation", cascade="all, delete-orphan"
     )
-    tradition_cards: Mapped[list["TraditionCard"]] = relationship(  # type: ignore[name-defined]
-        back_populates="conversation", cascade="all, delete-orphan",
-        order_by="TraditionCard.card_order"
+    tradition_cards: Mapped[list["TraditionCard"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="TraditionCard.card_order",
     )
 
 
 class ActionStep(Base):
     __tablename__ = "action_steps"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("conversations.id", ondelete="CASCADE"),

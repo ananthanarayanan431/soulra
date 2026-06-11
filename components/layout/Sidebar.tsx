@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/ui";
-import { listConversations, formatRelativeDate } from "@/lib/api";
-import type { Conversation } from "@/lib/api";
+import { listConversations, formatRelativeDate, getMe } from "@/lib/api";
+import type { Conversation, MeData } from "@/lib/api";
 
 const NAV_ITEMS = [
   { href: "/home",          label: "Today",            glyph: "·" },
@@ -13,16 +13,20 @@ const NAV_ITEMS = [
   { href: "/journal",       label: "Journal",          glyph: "◇" },
   { href: "/traditions",    label: "Traditions",       glyph: "◯" },
   { href: "/daily",         label: "Daily practice",   glyph: "✓" },
-  { href: "/ingest",        label: "Upload texts",     glyph: "↑" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [me, setMe] = useState<MeData | null>(null);
 
   useEffect(() => {
     listConversations(8).then(setConversations).catch(() => {});
   }, [pathname]);
+
+  useEffect(() => {
+    getMe().then(setMe).catch(() => {});
+  }, []);
 
   return (
     <aside className="w-[220px] border-r border-line bg-paper-alt flex flex-col flex-shrink-0">
@@ -49,6 +53,18 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {me?.role === "admin" && (
+        <div className="px-4 mt-1">
+          <Link
+            href="/admin/users"
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-ink border border-transparent hover:bg-paper/50"
+          >
+            <span className="font-mono text-muted w-3 text-[11px]">▲</span>
+            <span>Admin</span>
+          </Link>
+        </div>
+      )}
 
       {conversations.length > 0 && (
         <div className="mt-4 px-4">

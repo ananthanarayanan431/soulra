@@ -1,7 +1,9 @@
 "use client";
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout";
 import { Chip } from "@/components/ui";
+import { IngestPanel } from "@/components/traditions/IngestPanel";
 import type { Tradition, TraditionInput, TraditionsData } from "@/lib/api";
 import {
   updateTraditionPreferences,
@@ -31,6 +33,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function TraditionsClient({ initialData }: { initialData: TraditionsData }) {
+  const router = useRouter();
   const [traditions, setTraditions] = useState<Tradition[]>(initialData.traditions);
   const [selectedEra, setSelectedEra] = useState<string>("all");
   const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(
@@ -51,6 +54,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
   const [confirmingSlug, setConfirmingSlug] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ slug: string; message: string } | null>(null);
   const [infoSlug, setInfoSlug] = useState<string | null>(null);
+  const [ingestSlug, setIngestSlug] = useState<string | null>(null);
 
   const eras = ["all", ...Array.from(new Set(traditions.map(t => t.era))).sort()];
   const visible = selectedEra === "all" ? traditions : traditions.filter(t => t.era === selectedEra);
@@ -63,11 +67,16 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
     setEditingSlug(null);
     setConfirmingSlug(null);
     setInfoSlug(null);
+    setIngestSlug(null);
   }
 
   function toggleTradition(slug: string) {
     const next = new Set(selectedSlugs);
-    next.has(slug) ? next.delete(slug) : next.add(slug);
+    if (next.has(slug)) {
+      next.delete(slug);
+    } else {
+      next.add(slug);
+    }
     const slugs = Array.from(next);
     setSelectedSlugs(next);
     startTransition(() => { updateTraditionPreferences(slugs); });
@@ -100,6 +109,7 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
       setTraditions(prev => [...prev, created]);
       setShowCreate(false);
       setCreateForm(EMPTY_FORM);
+      setIngestSlug(created.slug);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create tradition");
     } finally {
@@ -287,11 +297,14 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
                   disabled={createBusy}
                   className="font-mono text-[10px] uppercase tracking-widest px-4 py-2 rounded-lg bg-ink text-paper disabled:opacity-50"
                 >
-                  {createBusy ? "creating…" : "create tradition"}
+                  {createBusy ? "creating…" : "create tradition →"}
                 </button>
-                {createForm.name.trim() && (
-                  <span className="font-mono text-[10px] text-muted">slug will be: {slugify(createForm.name.trim())}</span>
-                )}
+                <span className="font-mono text-[10px] text-muted">
+                  {createForm.name.trim()
+                    ? `slug: ${slugify(createForm.name.trim())} · `
+                    : ""}
+                  then upload PDF, URL, YouTube, or text
+                </span>
               </div>
               {createError && <div className="font-mono text-[10px] text-red-600 mt-3">{createError}</div>}
             </form>
@@ -300,6 +313,23 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
           <datalist id="tradition-era-options">
             {eras.filter(e => e !== "all").map(e => <option key={e} value={e} />)}
           </datalist>
+
+          {/* ingest panel — shown when a tradition is selected for content upload */}
+          {ingestSlug && (() => {
+            const t = traditions.find(x => x.slug === ingestSlug);
+            if (!t) return null;
+            return (
+              <div className="mb-6">
+                <IngestPanel
+                  traditionSlug={t.slug}
+                  traditionName={t.name}
+                  traditionEra={t.era}
+                  onDone={() => router.refresh()}
+                  onCancel={() => setIngestSlug(null)}
+                />
+              </div>
+            );
+          })()}
 
           {/* tradition cards grid */}
           {visible.length === 0 ? (
@@ -434,6 +464,13 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
                       {deleteError?.slug === t.slug && (
                         <span className="font-mono text-[9px] text-red-600">{deleteError.message}</span>
                       )}
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); closeOverlays(); setIngestSlug(t.slug); }}
+                        className={`font-mono text-[9px] uppercase tracking-widest ${isPicked ? "text-accent-soft hover:text-paper" : "text-muted hover:text-ink"}`}
+                      >
+                        upload
+                      </button>
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); startEditing(t); }}

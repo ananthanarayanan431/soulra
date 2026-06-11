@@ -37,8 +37,8 @@ async def test_update_tradition_applies_partial_changes(client, test_db):
     resp = await client.put("/api/v1/traditions/taoism", json={"origin": "China · ~600 BCE"})
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["name"] == "Taoism"            # unchanged
-    assert data["era"] == "ancient"             # unchanged
+    assert data["name"] == "Taoism"  # unchanged
+    assert data["era"] == "ancient"  # unchanged
     assert data["origin"] == "China · ~600 BCE"  # changed
 
 

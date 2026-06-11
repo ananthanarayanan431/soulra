@@ -16,6 +16,7 @@ import io
 import json
 import uuid
 from datetime import datetime, timezone
+from typing import cast
 
 import redis as sync_redis
 
@@ -26,6 +27,7 @@ from soulra.core.logging import logger
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def _sync_redis() -> sync_redis.Redis:
     return sync_redis.from_url(settings.redis_url, decode_responses=False)
 
@@ -35,6 +37,7 @@ def _cache_job(r: sync_redis.Redis, job_id: str, data: dict, ttl: int = 3600) ->
 
 
 # ── Async helpers (run inside asyncio.run()) ─────────────────────────────────
+
 
 async def _run_pipeline(
     filename: str,
@@ -57,13 +60,16 @@ async def _run_pipeline(
     )
     pipeline = IngestionPipeline(vectorstore=vs)
 
+    content: bytes
     if source_url:
         async with httpx.AsyncClient() as client:
             resp = await client.get(source_url, timeout=30)
             resp.raise_for_status()
             content = resp.content
-    else:
+    elif file_bytes is not None:
         content = file_bytes
+    else:
+        raise ValueError("No source_url or file_bytes provided")
 
     return await pipeline.run(
         file=io.BytesIO(content),
@@ -83,9 +89,7 @@ async def _update_db(job_id: str, **fields) -> None:
         factory = async_sessionmaker(engine, expire_on_commit=False)
         async with factory() as session:
             row = (
-                await session.execute(
-                    select(IngestJob).where(IngestJob.id == uuid.UUID(job_id))
-                )
+                await session.execute(select(IngestJob).where(IngestJob.id == uuid.UUID(job_id)))
             ).scalar_one_or_none()
             if row is not None:
                 for k, v in fields.items():
@@ -96,6 +100,7 @@ async def _update_db(job_id: str, **fields) -> None:
 
 
 # ── Celery task ──────────────────────────────────────────────────────────────
+
 
 @celery_app.task(
     bind=True,
@@ -128,26 +133,35 @@ def run_ingest(
     # Fetch staged file bytes from Redis.
     file_bytes: bytes | None = None
     if upload_key:
-        file_bytes = r.get(upload_key)
+        file_bytes = cast(bytes | None, r.get(upload_key))
         if file_bytes is None:
             logger.error("ingest_upload_expired", job_id=job_id)
-            asyncio.run(_update_db(job_id, status="failed", error="Upload expired before processing"))
+            asyncio.run(
+                _update_db(job_id, status="failed", error="Upload expired before processing")
+            )
             _cache_job(r, job_id, {"status": "failed", "error": "Upload expired"}, ttl=600)
             return {"status": "failed"}
 
     try:
-        result = asyncio.run(
-            _run_pipeline(filename, metadata, source_url, file_bytes)
-        )
+        result = asyncio.run(_run_pipeline(filename, metadata, source_url, file_bytes))
         asyncio.run(
             _update_db(
                 job_id,
                 status="done",
                 chunks_created=result["chunks_created"],
+                tokens_used=result["tokens_used"],
                 completed_at=datetime.now(timezone.utc),
             )
         )
-        _cache_job(r, job_id, {"status": "done", "chunks_created": result["chunks_created"]})
+        _cache_job(
+            r,
+            job_id,
+            {
+                "status": "done",
+                "chunks_created": result["chunks_created"],
+                "tokens_used": result["tokens_used"],
+            },
+        )
         if upload_key:
             r.delete(upload_key)
         logger.info("ingest_task_done", job_id=job_id, **result)
@@ -162,13 +176,13 @@ def run_ingest(
         )
         is_last = self.request.retries >= self.max_retries
         if not is_last:
-            raise self.retry(exc=exc, countdown=30 * (2 ** self.request.retries))
+            raise self.retry(exc=exc, countdown=30 * (2**self.request.retries))
 
         # All retries exhausted — persist failure.
-        asyncio.run(
-            _update_db(job_id, status="failed", error="Ingestion failed after retries")
+        asyncio.run(_update_db(job_id, status="failed", error="Ingestion failed after retries"))
+        _cache_job(
+            r, job_id, {"status": "failed", "error": "Ingestion failed after retries"}, ttl=600
         )
-        _cache_job(r, job_id, {"status": "failed", "error": "Ingestion failed after retries"}, ttl=600)
         if upload_key:
             r.delete(upload_key)
         logger.error("ingest_task_exhausted", job_id=job_id)
