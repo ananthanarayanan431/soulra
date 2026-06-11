@@ -1,9 +1,17 @@
+import os
+
 import pytest
 import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# Required Settings fields have no defaults — provide test placeholders so
+# `soulra.config.settings` is populated even when no .env file is present (CI).
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
+os.environ.setdefault("OPENROUTER_API_KEY", "sk-or-test-placeholder")
+os.environ.setdefault("COHERE_API_KEY", "test-placeholder")
 
 from soulra.core.auth import get_current_user
 from soulra.database import Base, get_db
@@ -116,6 +124,7 @@ async def other_client(test_db, other_user):
 @pytest.fixture
 def mock_fast_llm():
     from langchain_core.messages import AIMessage
+
     llm = MagicMock()
     llm.invoke = MagicMock(return_value=AIMessage(content="mock response"))
     llm.ainvoke = AsyncMock(return_value=AIMessage(content="mock response"))
@@ -125,6 +134,7 @@ def mock_fast_llm():
 @pytest.fixture
 def mock_smart_llm():
     from langchain_core.messages import AIMessage
+
     llm = MagicMock()
 
     async def _astream(*args, **kwargs):
@@ -139,9 +149,26 @@ def mock_smart_llm():
 @pytest.fixture
 def mock_vectorstore():
     from langchain_core.documents import Document
+
     vs = MagicMock()
-    vs.asimilarity_search = AsyncMock(return_value=[
-        Document(page_content="Stoic wisdom about refusing.", metadata={"tradition": "stoic", "author": "Marcus Aurelius", "citation": "Meditations 6.13"}),
-        Document(page_content="Buddhist wisdom about attachment.", metadata={"tradition": "buddhist", "author": "Pema Chödrön", "citation": "When Things Fall Apart"}),
-    ])
+    vs.asimilarity_search = AsyncMock(
+        return_value=[
+            Document(
+                page_content="Stoic wisdom about refusing.",
+                metadata={
+                    "tradition": "stoic",
+                    "author": "Marcus Aurelius",
+                    "citation": "Meditations 6.13",
+                },
+            ),
+            Document(
+                page_content="Buddhist wisdom about attachment.",
+                metadata={
+                    "tradition": "buddhist",
+                    "author": "Pema Chödrön",
+                    "citation": "When Things Fall Apart",
+                },
+            ),
+        ]
+    )
     return vs

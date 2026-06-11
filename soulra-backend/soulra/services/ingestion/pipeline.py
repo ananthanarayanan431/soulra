@@ -48,7 +48,9 @@ class IngestionPipeline:
 
             tokens_used = _count_tokens(chunks)
             await self.vectorstore.aadd_documents(chunks)
-            logger.info("ingestion_complete", filename=filename, chunks=len(chunks), tokens=tokens_used)
+            logger.info(
+                "ingestion_complete", filename=filename, chunks=len(chunks), tokens=tokens_used
+            )
             return {"chunks_created": len(chunks), "tokens_used": tokens_used}
         except IngestionError:
             raise

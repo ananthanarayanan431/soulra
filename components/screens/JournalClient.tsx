@@ -49,7 +49,7 @@ function EntryRow({
   entry: JournalEntry;
   onToggleApplied: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
-  onSaveNote: (id: string, note: string) => void;
+  onSaveNote: (id: string, note: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [noteText, setNoteText] = useState(entry.personal_note ?? "");
@@ -135,8 +135,11 @@ function EntryRow({
                 const trimmed = noteText.trim();
                 if (trimmed === (entry.personal_note ?? "").trim()) return;
                 setNoteSaving(true);
-                await onSaveNote(entry.id, trimmed);
-                setNoteSaving(false);
+                try {
+                  await onSaveNote(entry.id, trimmed);
+                } finally {
+                  setNoteSaving(false);
+                }
               }}
             />
             {noteSaving && (

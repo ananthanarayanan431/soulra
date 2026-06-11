@@ -57,8 +57,10 @@ async def status(db: AsyncSession = Depends(get_db)):
     except Exception:
         pass
 
-    return SuccessResponse(data=StatusData(
-        database="ok" if db_ok else "error",
-        redis="ok" if redis_ok else "error",
-        vector_store={"passage_count": passage_count},
-    ))
+    return SuccessResponse(
+        data=StatusData(
+            database="ok" if db_ok else "error",
+            redis="ok" if redis_ok else "error",
+            vector_store={"passage_count": passage_count},
+        )
+    )

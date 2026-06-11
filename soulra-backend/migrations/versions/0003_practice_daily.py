@@ -5,12 +5,13 @@ Revises: 0002
 Create Date: 2026-06-07
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = '0003'
-down_revision = '0002'
+revision = "0003"
+down_revision = "0002"
 branch_labels = None
 depends_on = None
 

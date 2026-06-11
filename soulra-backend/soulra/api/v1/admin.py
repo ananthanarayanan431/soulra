@@ -34,13 +34,22 @@ async def list_users(
 ):
     total = (await db.execute(select(func.count()).select_from(User))).scalar_one()
     rows = (
-        await db.execute(
-            select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+        (
+            await db.execute(
+                select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+            )
         )
-    ).scalars().all()
-    return SuccessResponse(data=PaginatedData(
-        items=[UserOut.model_validate(r) for r in rows], total=total, limit=limit, offset=offset,
-    ))
+        .scalars()
+        .all()
+    )
+    return SuccessResponse(
+        data=PaginatedData(
+            items=[UserOut.model_validate(r) for r in rows],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+    )
 
 
 @router.get("/users/{user_id}", response_model=SuccessResponse[UserDetailOut])
@@ -50,30 +59,34 @@ async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
 
     logins = (
-        await db.execute(
-            select(LoginEvent)
-            .where(LoginEvent.user_id == user_id)
-            .order_by(LoginEvent.created_at.desc())
-            .limit(RECENT_LIMIT)
+        (
+            await db.execute(
+                select(LoginEvent)
+                .where(LoginEvent.user_id == user_id)
+                .order_by(LoginEvent.created_at.desc())
+                .limit(RECENT_LIMIT)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     usage = (
-        await db.execute(
-            select(TokenUsageLog)
-            .where(TokenUsageLog.user_id == user_id)
-            .order_by(TokenUsageLog.created_at.desc())
-            .limit(RECENT_LIMIT)
+        (
+            await db.execute(
+                select(TokenUsageLog)
+                .where(TokenUsageLog.user_id == user_id)
+                .order_by(TokenUsageLog.created_at.desc())
+                .limit(RECENT_LIMIT)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     detail = UserDetailOut(
         **UserOut.model_validate(user).model_dump(),
-        recent_logins=[
-            _login_event_out(e, user.email) for e in logins
-        ],
-        recent_usage=[
-            _token_usage_out(u, user.email) for u in usage
-        ],
+        recent_logins=[_login_event_out(e, user.email) for e in logins],
+        recent_usage=[_token_usage_out(u, user.email) for u in usage],
     )
     return SuccessResponse(data=detail)
 
@@ -119,9 +132,7 @@ async def list_login_events(
 
     total = (await db.execute(count_stmt)).scalar_one()
     rows = (
-        await db.execute(
-            stmt.order_by(LoginEvent.created_at.desc()).limit(limit).offset(offset)
-        )
+        await db.execute(stmt.order_by(LoginEvent.created_at.desc()).limit(limit).offset(offset))
     ).all()
     items = [_login_event_out(event, email) for event, email in rows]
     return SuccessResponse(data=PaginatedData(items=items, total=total, limit=limit, offset=offset))
@@ -142,9 +153,7 @@ async def list_token_usage(
 
     total = (await db.execute(count_stmt)).scalar_one()
     rows = (
-        await db.execute(
-            stmt.order_by(TokenUsageLog.created_at.desc()).limit(limit).offset(offset)
-        )
+        await db.execute(stmt.order_by(TokenUsageLog.created_at.desc()).limit(limit).offset(offset))
     ).all()
     items = [_token_usage_out(log, email) for log, email in rows]
     return SuccessResponse(data=PaginatedData(items=items, total=total, limit=limit, offset=offset))

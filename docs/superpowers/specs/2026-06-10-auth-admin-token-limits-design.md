@@ -30,6 +30,7 @@ This is one cohesive change because auth, the admin dashboard, and token limits 
 New Alembic migration `0006_users_auth.py` adds:
 
 ### `users`
+
 | column | type | notes |
 |---|---|---|
 | `id` | `String` PK | Clerk user id (`user_xxx`), not a UUID |
@@ -42,6 +43,7 @@ New Alembic migration `0006_users_auth.py` adds:
 | `last_login_at` | `TIMESTAMP(tz)`, nullable | |
 
 ### `login_events`
+
 | column | type | notes |
 |---|---|---|
 | `id` | UUID PK | |
@@ -52,6 +54,7 @@ New Alembic migration `0006_users_auth.py` adds:
 | `created_at` | `TIMESTAMP(tz)`, indexed | |
 
 ### `token_usage_log`
+
 | column | type | notes |
 |---|---|---|
 | `id` | UUID PK | |
@@ -81,7 +84,7 @@ New module `soulra/core/auth.py`:
   1. Extract `Authorization: Bearer <token>` header (401 if missing/invalid)
   2. Verify via `verify_clerk_token`
   3. Lazy-upsert local `users` row from claims (create on first sight with default role `"user"` and default `token_limit`)
-  4. Update `last_login_at`, write a `login_events` row when a new session is detected (new token `sid` claim not seen before — track via a small in-memory/Redis set or just log every distinct token verification as a login event capped by a time window, e.g. only log if last login was >30 min ago)
+  4. Update `last_login_at` and write a `login_events` row only if `last_login_at` is more than 30 minutes ago, to avoid logging an event on every request
   5. Return the `User` row
 - `require_admin(user: User = Depends(get_current_user)) -> User` — raises `403` if `role != "admin"`
 

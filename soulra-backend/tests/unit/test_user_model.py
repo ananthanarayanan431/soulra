@@ -24,10 +24,16 @@ async def test_login_event_and_usage_log_round_trip(test_db):
     await test_db.flush()
 
     test_db.add(LoginEvent(user_id=user.id, event_type="login"))
-    test_db.add(TokenUsageLog(
-        id=uuid.uuid4(), user_id=user.id, model="anthropic/claude-sonnet-4-6",
-        prompt_tokens=10, completion_tokens=20, total_tokens=30,
-    ))
+    test_db.add(
+        TokenUsageLog(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            model="anthropic/claude-sonnet-4-6",
+            prompt_tokens=10,
+            completion_tokens=20,
+            total_tokens=30,
+        )
+    )
     await test_db.flush()
 
     events = (await test_db.execute(select(LoginEvent))).scalars().all()

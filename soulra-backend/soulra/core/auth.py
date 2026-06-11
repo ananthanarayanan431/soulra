@@ -58,20 +58,28 @@ async def _get_or_create_user(
         )
         db.add(user)
         await db.flush()
-        db.add(LoginEvent(
-            user_id=user.id, event_type="signup",
-            ip_address=ip_address, user_agent=user_agent,
-        ))
+        db.add(
+            LoginEvent(
+                user_id=user.id,
+                event_type="signup",
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        )
         return user
 
     if email and user.email != email:
         user.email = email
 
     if user.last_login_at is None or now - user.last_login_at > LOGIN_EVENT_DEDUPE_WINDOW:
-        db.add(LoginEvent(
-            user_id=user.id, event_type="login",
-            ip_address=ip_address, user_agent=user_agent,
-        ))
+        db.add(
+            LoginEvent(
+                user_id=user.id,
+                event_type="login",
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        )
     user.last_login_at = now
     return user
 
@@ -80,10 +88,11 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     auth_header = request.headers.get("authorization", "")
     if not auth_header.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
-    token = auth_header[len("bearer "):]
+    token = auth_header[len("bearer ") :]
     claims = verify_clerk_token(token)
     return await _get_or_create_user(
-        db, claims,
+        db,
+        claims,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
@@ -97,7 +106,8 @@ async def get_current_user_ws(websocket: WebSocket, db: AsyncSession) -> User | 
     try:
         claims = verify_clerk_token(token)
         return await _get_or_create_user(
-            db, claims,
+            db,
+            claims,
             ip_address=websocket.client.host if websocket.client else None,
             user_agent=websocket.headers.get("user-agent"),
         )

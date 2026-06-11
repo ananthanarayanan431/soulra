@@ -16,14 +16,24 @@ interface ActionPlanProps {
 
 export function ActionPlan({ steps: initialSteps, onSaveToJournal, onSuggestDifferent }: ActionPlanProps) {
   const [steps, setSteps] = useState<ActionStep[]>(initialSteps);
+  const [prevInitialSteps, setPrevInitialSteps] = useState(initialSteps);
   const [committed, setCommitted] = useState<Set<number>>(new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [regenState, setRegenState] = useState<"idle" | "loading">("idle");
 
+  if (initialSteps !== prevInitialSteps) {
+    setPrevInitialSteps(initialSteps);
+    setSteps(initialSteps);
+  }
+
   function toggle(i: number) {
     setCommitted(prev => {
       const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
+      if (next.has(i)) {
+        next.delete(i);
+      } else {
+        next.add(i);
+      }
       return next;
     });
   }
@@ -31,11 +41,14 @@ export function ActionPlan({ steps: initialSteps, onSaveToJournal, onSuggestDiff
   async function handleSuggestDifferent() {
     if (!onSuggestDifferent || regenState !== "idle") return;
     setRegenState("loading");
-    const newSteps = await onSuggestDifferent();
-    setRegenState("idle");
-    if (newSteps) {
-      setSteps(newSteps);
-      setCommitted(new Set());
+    try {
+      const newSteps = await onSuggestDifferent();
+      if (newSteps) {
+        setSteps(newSteps);
+        setCommitted(new Set());
+      }
+    } finally {
+      setRegenState("idle");
     }
   }
 

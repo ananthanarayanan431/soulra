@@ -22,6 +22,8 @@ class UserOut(MeOut):
 class LoginEventOut(BaseModel):
     id: uuid.UUID
     user_id: str
+    # Not present on the LoginEvent model — populated via a join in the API layer.
+    # Default lets from_attributes parsing succeed even without it.
     user_email: str = ""
     event_type: str
     ip_address: str | None
@@ -34,6 +36,7 @@ class LoginEventOut(BaseModel):
 class TokenUsageOut(BaseModel):
     id: uuid.UUID
     user_id: str
+    # Not present on the TokenUsageLog model — populated via a join in the API layer.
     user_email: str = ""
     conversation_id: uuid.UUID | None
     model: str

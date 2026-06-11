@@ -46,7 +46,9 @@ async def test_ingest_job_status_not_found(client):
 @pytest.mark.asyncio
 async def test_ingest_text_returns_job_id(client):
     with patch("soulra.api.v1.ingest._get_pipeline") as mock_pipeline_factory:
-        mock_pipeline_factory.return_value.run = AsyncMock(return_value={"chunks_created": 3, "tokens_used": 0})
+        mock_pipeline_factory.return_value.run = AsyncMock(
+            return_value={"chunks_created": 3, "tokens_used": 0}
+        )
         resp = await client.post(
             "/api/v1/ingest/text",
             data={
@@ -65,8 +67,10 @@ async def test_ingest_text_returns_job_id(client):
 
 @pytest.mark.asyncio
 async def test_ingest_url_returns_job_id(client):
-    with patch("soulra.api.v1.ingest._check_url_not_ssrf"), \
-         patch("soulra.api.v1.ingest._run_ingestion_task"):
+    with (
+        patch("soulra.api.v1.ingest._check_url_not_ssrf"),
+        patch("soulra.api.v1.ingest._run_ingestion_task"),
+    ):
         resp = await client.post(
             "/api/v1/ingest/url",
             data={
@@ -86,6 +90,7 @@ async def test_ingest_url_returns_job_id(client):
 @pytest.mark.asyncio
 async def test_ingest_job_status_returns_record(client, test_db, test_user):
     from soulra.models.ingest_job import IngestJob
+
     job = IngestJob(id=uuid.uuid4(), status="done", chunks_created=5, user_id=test_user.id)
     test_db.add(job)
     await test_db.flush()

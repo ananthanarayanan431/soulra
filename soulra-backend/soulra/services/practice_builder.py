@@ -7,6 +7,7 @@ Day layout:
   Morning content: tradition cards cycled across days
   Evening prompt: derived from the day's task title
 """
+
 import uuid
 from datetime import datetime, timezone
 
@@ -26,7 +27,9 @@ def _day_label(arc_created_at: datetime, day_number: int) -> str:
     return _WEEKDAY_LABELS[weekday]
 
 
-def _build_days(arc: PracticeArc, steps: list[ActionStep], cards: list[TraditionCard]) -> list[PracticeDay]:
+def _build_days(
+    arc: PracticeArc, steps: list[ActionStep], cards: list[TraditionCard]
+) -> list[PracticeDay]:
     days = []
     for day_num in range(1, 8):
         if day_num == 7:
@@ -38,21 +41,25 @@ def _build_days(arc: PracticeArc, steps: list[ActionStep], cards: list[Tradition
             task_body = step.body
 
         card = cards[(day_num - 1) % len(cards)]
-        evening_prompt = f'Did "{task_title.lower()}" show up today, even once? What did you notice?'
+        evening_prompt = (
+            f'Did "{task_title.lower()}" show up today, even once? What did you notice?'
+        )
 
-        days.append(PracticeDay(
-            arc_id=arc.id,
-            day_number=day_num,
-            day_label=_day_label(arc.created_at, day_num),
-            task_title=task_title,
-            task_body=task_body,
-            morning_quote=card.quote,
-            morning_author=card.author,
-            morning_citation=card.citation,
-            morning_analysis=card.analysis,
-            evening_prompt=evening_prompt,
-            completed=False,
-        ))
+        days.append(
+            PracticeDay(
+                arc_id=arc.id,
+                day_number=day_num,
+                day_label=_day_label(arc.created_at, day_num),
+                task_title=task_title,
+                task_body=task_body,
+                morning_quote=card.quote,
+                morning_author=card.author,
+                morning_citation=card.citation,
+                morning_analysis=card.analysis,
+                evening_prompt=evening_prompt,
+                completed=False,
+            )
+        )
     return days
 
 

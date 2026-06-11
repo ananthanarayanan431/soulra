@@ -17,6 +17,7 @@ def test_ws_chat_accepts_connection():
     """WebSocket endpoint is registered and accepts connections."""
     from soulra.main import app
     from soulra.api.websocket import set_graph
+
     set_graph(None)
     client = TestClient(app)
     with client.websocket_connect("/ws/chat") as ws:
@@ -177,23 +178,27 @@ def test_ws_chat_sends_error_on_graph_error():
 def test_make_initial_state_covers_all_soulra_state_keys():
     """make_initial_state must produce a dict with all SoulraState keys."""
     from soulra.graph.state import make_initial_state, SoulraState
+
     state = make_initial_state("test situation")
     expected_keys = set(SoulraState.__annotations__.keys())
     actual_keys = set(state.keys())
-    assert actual_keys == expected_keys, \
+    assert actual_keys == expected_keys, (
         f"Missing keys: {expected_keys - actual_keys}, Extra keys: {actual_keys - expected_keys}"
+    )
     assert state["situation"] == "test situation"
 
 
 def test_websocket_uses_make_initial_state():
     """websocket.py must use make_initial_state instead of a hardcoded dict."""
-    import ast
     import pathlib
+
     ws_source = pathlib.Path("soulra/api/websocket.py").read_text()
-    assert "make_initial_state" in ws_source, \
+    assert "make_initial_state" in ws_source, (
         "websocket.py must call make_initial_state() — hardcoded dict drifts from SoulraState"
-    assert "initial_input = {" not in ws_source, \
+    )
+    assert "initial_input = {" not in ws_source, (
         "hardcoded initial_input dict found — replace with make_initial_state()"
+    )
 
 
 def test_ws_chat_rejects_when_token_limit_exceeded():
@@ -205,7 +210,9 @@ def test_ws_chat_rejects_when_token_limit_exceeded():
     set_graph(MagicMock())
 
     try:
-        with patch("soulra.api.websocket.get_current_user_ws", new=AsyncMock(return_value=over_limit_user)):
+        with patch(
+            "soulra.api.websocket.get_current_user_ws", new=AsyncMock(return_value=over_limit_user)
+        ):
             client = TestClient(app)
             with client.websocket_connect("/ws/chat") as ws:
                 msg = ws.receive_json()
@@ -218,13 +225,11 @@ def test_ws_chat_rejects_when_token_limit_exceeded():
 def test_ws_chat_rejects_disallowed_origin():
     """WebSocket must reject connections from origins not in allowed_origins."""
     from soulra.main import app
+
     with TestClient(app) as client:
         # Use an origin not in allowed_origins (which is ["http://localhost:3000"])
         try:
-            with client.websocket_connect(
-                "/ws/chat",
-                headers={"origin": "http://evil.com"}
-            ) as ws:
+            with client.websocket_connect("/ws/chat", headers={"origin": "http://evil.com"}) as ws:
                 # Should be rejected — connection may close immediately
                 _msg = ws.receive_json()
                 # If we get here, might receive error or nothing
@@ -263,7 +268,7 @@ def test_ws_error_sends_generic_message_not_raw_exception():
     assert error_msgs, "Expected an error event"
     # The raw exception message must NOT appear in the error sent to client
     for msg in error_msgs:
-        assert "SECRET_DB_PASSWORD" not in msg.get("message", ""), \
+        assert "SECRET_DB_PASSWORD" not in msg.get("message", ""), (
             "Raw exception detail leaked to client"
-        assert "xyz123" not in msg.get("message", ""), \
-            "Raw exception detail leaked to client"
+        )
+        assert "xyz123" not in msg.get("message", ""), "Raw exception detail leaked to client"

@@ -34,6 +34,7 @@ async def lifespan(_app: FastAPI):
 
     import cohere as cohere_sdk
     from soulra.dependencies import set_cohere_client
+
     async with cohere_sdk.AsyncClient(api_key=settings.cohere_api_key) as _cohere:
         set_cohere_client(_cohere)
 
@@ -42,7 +43,9 @@ async def lifespan(_app: FastAPI):
         _proc: asyncio.subprocess.Process | None = None
         try:
             _proc = await asyncio.create_subprocess_exec(
-                "alembic", "upgrade", "head",
+                "alembic",
+                "upgrade",
+                "head",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd="/app",
@@ -67,6 +70,7 @@ async def lifespan(_app: FastAPI):
 
         # Build LangGraph graph with Postgres checkpointer
         from soulra.dependencies import set_vectorstore, set_retriever
+
         try:
             from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
             from langchain_postgres import PGVector
@@ -85,6 +89,7 @@ async def lifespan(_app: FastAPI):
             # when create_extension=True).
             from sqlalchemy import text
             from soulra.database import engine as _db_engine
+
             async with _db_engine.connect() as _conn:
                 await _conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                 await _conn.commit()
@@ -167,9 +172,7 @@ async def soulra_exception_handler(_request: Request, exc: SoulraException):
     status_code = _STATUS_MAP.get(exc.code, 500)
     return JSONResponse(
         status_code=status_code,
-        content=ErrorResponse(
-            error=ErrorDetail(code=exc.code, message=exc.message)
-        ).model_dump(),
+        content=ErrorResponse(error=ErrorDetail(code=exc.code, message=exc.message)).model_dump(),
     )
 
 
@@ -190,9 +193,7 @@ async def http_exception_handler(_request: Request, exc: HTTPException):
     code = _HTTP_CODE_MAP.get(exc.status_code, "HTTP_ERROR")
     return JSONResponse(
         status_code=exc.status_code,
-        content=ErrorResponse(
-            error=ErrorDetail(code=code, message=str(exc.detail))
-        ).model_dump(),
+        content=ErrorResponse(error=ErrorDetail(code=code, message=str(exc.detail))).model_dump(),
     )
 
 

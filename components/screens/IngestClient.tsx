@@ -177,6 +177,7 @@ function NewTraditionForm({ eras, onCreated, onCancel }: NewTraditionFormProps) 
 
 export function IngestClient() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [traditions, setTraditions] = useState<Tradition[]>([]);
   const [eras, setEras] = useState<string[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -233,6 +234,7 @@ export function IngestClient() {
       setJobState({ phase: "processing", jobId: result.job_id });
       pollJob(result.job_id);
       if (fileRef.current) fileRef.current.value = "";
+      setFileName(null);
       setAuthor("");
       setSource("");
     } catch (err) {
@@ -385,7 +387,7 @@ export function IngestClient() {
                 <span className="font-mono text-[28px] text-muted">↑</span>
                 <span className="text-[13px] text-ink">Click to choose a PDF</span>
                 <span className="font-mono text-[10px] text-muted">
-                  {fileRef.current?.files?.[0]?.name ?? "No file chosen"}
+                  {fileName ?? "No file chosen"}
                 </span>
                 <input
                   ref={fileRef}
@@ -393,7 +395,10 @@ export function IngestClient() {
                   accept="application/pdf"
                   required
                   className="hidden"
-                  onChange={() => setJobState({ phase: "idle" })}
+                  onChange={e => {
+                    setFileName(e.target.files?.[0]?.name ?? null);
+                    setJobState({ phase: "idle" });
+                  }}
                 />
               </div>
             </div>

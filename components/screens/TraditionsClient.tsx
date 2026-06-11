@@ -72,7 +72,11 @@ export function TraditionsClient({ initialData }: { initialData: TraditionsData 
 
   function toggleTradition(slug: string) {
     const next = new Set(selectedSlugs);
-    next.has(slug) ? next.delete(slug) : next.add(slug);
+    if (next.has(slug)) {
+      next.delete(slug);
+    } else {
+      next.add(slug);
+    }
     const slugs = Array.from(next);
     setSelectedSlugs(next);
     startTransition(() => { updateTraditionPreferences(slugs); });

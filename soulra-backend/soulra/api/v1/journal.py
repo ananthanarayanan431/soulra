@@ -8,8 +8,12 @@ from soulra.database import get_db
 from soulra.models.journal import JournalEntry
 from soulra.models.user import User
 from soulra.schemas.journal import (
-    JournalData, JournalEntryOut, JournalStats, TagCount,
-    CreateJournalEntry, PatchJournalEntry,
+    JournalData,
+    JournalEntryOut,
+    JournalStats,
+    TagCount,
+    CreateJournalEntry,
+    PatchJournalEntry,
 )
 from soulra.schemas.responses import SuccessResponse
 
@@ -19,9 +23,7 @@ router = APIRouter(tags=["journal"])
 async def _tag_counts(db: AsyncSession, user_id: str) -> list[TagCount]:
     if db.bind.dialect.name == "sqlite":
         # SQLite has no unnest(); aggregate the JSON-encoded tag arrays in Python.
-        rows = await db.execute(
-            select(JournalEntry.tags).where(JournalEntry.user_id == user_id)
-        )
+        rows = await db.execute(select(JournalEntry.tags).where(JournalEntry.user_id == user_id))
         counts: dict[str, int] = {}
         for (tags,) in rows:
             for tag in tags or []:
@@ -123,15 +125,21 @@ async def list_journal(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(JournalEntry).where(JournalEntry.user_id == current_user.id).order_by(JournalEntry.saved_at.desc())
+    stmt = (
+        select(JournalEntry)
+        .where(JournalEntry.user_id == current_user.id)
+        .order_by(JournalEntry.saved_at.desc())
+    )
     if tag and tag != "all":
-        stmt = stmt.where(tag == any_(JournalEntry.tags))
+        stmt = stmt.where(any_(JournalEntry.tags) == tag)
     entries = (await db.execute(stmt)).scalars().all()
 
     tag_rows = await _tag_counts(db, current_user.id)
     total = (
         await db.execute(
-            select(func.count()).select_from(JournalEntry).where(JournalEntry.user_id == current_user.id)
+            select(func.count())
+            .select_from(JournalEntry)
+            .where(JournalEntry.user_id == current_user.id)
         )
     ).scalar_one()
     all_tag = [TagCount(name="all", count=total)] + tag_rows
@@ -140,13 +148,15 @@ async def list_journal(
     stats = await _stats(db, current_user.id)
     revisit = await _revisit_entry(db, current_user.id)
 
-    return SuccessResponse(data=JournalData(
-        entries=[JournalEntryOut.model_validate(e) for e in entries],
-        stats=stats,
-        tag_counts=all_tag,
-        tradition_counts=tradition_rows,
-        revisit=JournalEntryOut.model_validate(revisit) if revisit else None,
-    ))
+    return SuccessResponse(
+        data=JournalData(
+            entries=[JournalEntryOut.model_validate(e) for e in entries],
+            stats=stats,
+            tag_counts=all_tag,
+            tradition_counts=tradition_rows,
+            revisit=JournalEntryOut.model_validate(revisit) if revisit else None,
+        )
+    )
 
 
 @router.post(
@@ -191,7 +201,9 @@ async def patch_journal_entry(
 ):
     row = (
         await db.execute(
-            select(JournalEntry).where(JournalEntry.id == entry_id, JournalEntry.user_id == current_user.id)
+            select(JournalEntry).where(
+                JournalEntry.id == entry_id, JournalEntry.user_id == current_user.id
+            )
         )
     ).scalar_one_or_none()
     if not row:
@@ -222,7 +234,9 @@ async def delete_journal_entry(
 ):
     row = (
         await db.execute(
-            select(JournalEntry).where(JournalEntry.id == entry_id, JournalEntry.user_id == current_user.id)
+            select(JournalEntry).where(
+                JournalEntry.id == entry_id, JournalEntry.user_id == current_user.id
+            )
         )
     ).scalar_one_or_none()
     if not row:

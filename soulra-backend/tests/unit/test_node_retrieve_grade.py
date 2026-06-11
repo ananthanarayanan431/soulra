@@ -30,6 +30,7 @@ def _make_state(**overrides):
 async def test_retrieve_node_calls_retriever_for_each_hint(mock_vectorstore):
     from soulra.graph.nodes.retrieve import create_retrieve_node
     from soulra.services.retrieval.retriever import WisdomRetriever
+
     retriever = WisdomRetriever(mock_vectorstore)
     retrieve = create_retrieve_node(retriever)
 
@@ -44,6 +45,7 @@ async def test_retrieve_node_deduplicates_documents(mock_vectorstore):
     from soulra.graph.nodes.retrieve import create_retrieve_node
     from soulra.services.retrieval.retriever import WisdomRetriever
     from unittest.mock import AsyncMock
+
     # Both hints return the same document
     dup_doc = Document(page_content="Stoic wisdom.", metadata={"tradition": "stoic"})
     mock_vectorstore.asimilarity_search = AsyncMock(return_value=[dup_doc])
@@ -58,6 +60,7 @@ async def test_retrieve_refined_writes_to_refined_docs_key(mock_vectorstore):
     """retrieve_refined must write to refined_docs, not retrieved_docs."""
     from soulra.graph.nodes.retrieve import create_retrieve_node
     from soulra.services.retrieval.retriever import WisdomRetriever
+
     retriever = WisdomRetriever(mock_vectorstore)
     retrieve_refined = create_retrieve_node(retriever, output_key="refined_docs")
     result = await retrieve_refined(_make_state())
@@ -69,6 +72,7 @@ async def test_retrieve_refined_writes_to_refined_docs_key(mock_vectorstore):
 async def test_grade_node_returns_relevant_when_majority_score_yes():
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
     from unittest.mock import AsyncMock
+
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
@@ -86,6 +90,7 @@ async def test_grade_node_returns_relevant_when_majority_score_yes():
 async def test_grade_node_returns_not_relevant_when_majority_score_no():
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
     from unittest.mock import AsyncMock
+
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="no"))
@@ -100,6 +105,7 @@ async def test_grade_node_returns_not_relevant_when_majority_score_no():
 async def test_grade_node_returns_relevant_for_single_doc_with_yes_score():
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
     from unittest.mock import AsyncMock
+
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
@@ -113,6 +119,7 @@ async def test_grade_node_returns_relevant_for_single_doc_with_yes_score():
 @pytest.mark.asyncio
 async def test_grade_node_returns_not_relevant_for_empty_docs():
     from soulra.graph.nodes.grade import create_grade_node
+
     mock_llm = MagicMock()
     grade = create_grade_node(mock_llm)
     result = await grade(_make_state(reranked_docs=[]))
@@ -122,11 +129,13 @@ async def test_grade_node_returns_not_relevant_for_empty_docs():
 def test_grade_node_is_async():
     """grade node function must be async def so it doesn't block the event loop."""
     from soulra.graph.nodes.grade import create_grade_node
+
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
     grade = create_grade_node(mock_llm)
-    assert asyncio.iscoroutinefunction(grade), \
+    assert asyncio.iscoroutinefunction(grade), (
         "grade node must be async def — sync def blocks the asyncio event loop"
+    )
 
 
 @pytest.mark.asyncio
@@ -152,10 +161,18 @@ async def test_retrieve_node_searches_traditions_concurrently():
     state = {
         "query": "refusing gracefully",
         "tradition_hints": ["stoic", "buddhist", "vedanta"],
-        "retrieved_docs": [], "reranked_docs": [], "situation": "", "grade_result": "",
-        "clarify_question": "", "clarify_chips": [], "clarify_answer": None,
-        "refined_docs": [], "tradition_cards": [], "action_steps": [],
-        "messages": [], "rewrite_count": 0,
+        "retrieved_docs": [],
+        "reranked_docs": [],
+        "situation": "",
+        "grade_result": "",
+        "clarify_question": "",
+        "clarify_chips": [],
+        "clarify_answer": None,
+        "refined_docs": [],
+        "tradition_cards": [],
+        "action_steps": [],
+        "messages": [],
+        "rewrite_count": 0,
     }
 
     result = await retrieve(state)
@@ -169,8 +186,9 @@ async def test_retrieve_node_searches_traditions_concurrently():
     # The first "end" must come after all "start"s
     first_end_idx = next(i for i, e in enumerate(call_order) if e[0] == "end")
     starts_before_first_end = sum(1 for e in call_order[:first_end_idx] if e[0] == "start")
-    assert starts_before_first_end == 3, \
+    assert starts_before_first_end == 3, (
         f"Expected concurrent execution (3 starts before first end), got: {call_order}"
+    )
 
 
 @pytest.mark.asyncio
@@ -184,24 +202,32 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     class MockStructuredLLM:
         async def ainvoke(self, prompt):
             call_log.append(prompt)
+
             class R:
                 score = "yes"
+
             return R()
 
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=MockStructuredLLM())
     grade = create_grade_node(mock_llm)
 
-    docs = [
-        Document(page_content=f"doc{i}", metadata={})
-        for i in range(4)
-    ]
+    docs = [Document(page_content=f"doc{i}", metadata={}) for i in range(4)]
     state = {
-        "situation": "test", "query": "test query",
-        "retrieved_docs": docs, "reranked_docs": docs, "tradition_hints": [],
-        "grade_result": "", "clarify_question": "", "clarify_chips": [],
-        "clarify_answer": None, "refined_docs": [], "tradition_cards": [],
-        "action_steps": [], "messages": [], "rewrite_count": 0,
+        "situation": "test",
+        "query": "test query",
+        "retrieved_docs": docs,
+        "reranked_docs": docs,
+        "tradition_hints": [],
+        "grade_result": "",
+        "clarify_question": "",
+        "clarify_chips": [],
+        "clarify_answer": None,
+        "refined_docs": [],
+        "tradition_cards": [],
+        "action_steps": [],
+        "messages": [],
+        "rewrite_count": 0,
     }
     result = await grade(state)
     assert len(call_log) == 4, "Expected 4 ainvoke calls for 4 docs"
@@ -212,6 +238,7 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
 async def test_grade_node_reads_from_reranked_docs_not_retrieved():
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
     from unittest.mock import AsyncMock
+
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
@@ -235,6 +262,7 @@ async def test_grade_node_reads_from_reranked_docs_not_retrieved():
 async def test_grade_node_emits_selection_recall_log(caplog):
     from soulra.graph.nodes.grade import create_grade_node, GradeOutput
     from unittest.mock import AsyncMock
+
     mock_llm = MagicMock()
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=GradeOutput(score="yes"))
@@ -252,10 +280,12 @@ async def test_grade_node_emits_selection_recall_log(caplog):
 async def test_retrieve_node_requests_k10_per_tradition(mock_vectorstore):
     from soulra.graph.nodes.retrieve import create_retrieve_node
     from soulra.services.retrieval.retriever import WisdomRetriever
+
     retriever = WisdomRetriever(mock_vectorstore)
     retrieve = create_retrieve_node(retriever)
     await retrieve(_make_state())
     # Each call to asimilarity_search must request k=10
     for call in mock_vectorstore.asimilarity_search.call_args_list:
-        assert call.kwargs.get("k", call.args[1] if len(call.args) > 1 else None) == 10, \
+        assert call.kwargs.get("k", call.args[1] if len(call.args) > 1 else None) == 10, (
             f"Expected k=10 but got: {call}"
+        )

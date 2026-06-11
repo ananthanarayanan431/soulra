@@ -37,12 +37,12 @@ class Settings(BaseSettings):
 
 def get_settings() -> "Settings":
     """Return a Settings instance. Deferred so imports don't fail in test environments."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]
 
 
 # Module-level singleton — only materialised outside of test collection.
 # Tests that need an unconfigured Settings should call Settings() directly.
 try:
-    settings = Settings()
+    settings = Settings()  # type: ignore[call-arg]
 except ValidationError:  # pragma: no cover
     settings = None  # type: ignore[assignment]

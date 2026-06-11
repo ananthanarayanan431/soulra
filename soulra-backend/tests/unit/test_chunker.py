@@ -10,7 +10,9 @@ def test_chunk_documents_splits_long_text():
 
 
 def test_chunk_documents_preserves_metadata():
-    docs = [Document(page_content="Short text.", metadata={"tradition": "stoic", "author": "Marcus"})]
+    docs = [
+        Document(page_content="Short text.", metadata={"tradition": "stoic", "author": "Marcus"})
+    ]
     chunks = chunk_documents(docs)
     assert chunks
     assert all(c.metadata["tradition"] == "stoic" for c in chunks)
@@ -37,9 +39,11 @@ def test_chunk_documents_stamps_ingested_at():
 
 def test_chunk_documents_does_not_overwrite_existing_ingested_at():
     existing_ts = "2020-01-01T00:00:00+00:00"
-    docs = [Document(
-        page_content="Short text about Stoicism.",
-        metadata={"ingested_at": existing_ts},
-    )]
+    docs = [
+        Document(
+            page_content="Short text about Stoicism.",
+            metadata={"ingested_at": existing_ts},
+        )
+    ]
     chunks = chunk_documents(docs)
     assert all(c.metadata["ingested_at"] == existing_ts for c in chunks)

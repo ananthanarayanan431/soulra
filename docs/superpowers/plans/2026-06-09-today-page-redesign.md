@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Rewrite HomeScreen.tsx
+## Task 1: Rewrite HomeScreen.tsx
 
 **Files:**
 - Modify: `components/screens/HomeScreen.tsx`

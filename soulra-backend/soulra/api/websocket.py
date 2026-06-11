@@ -9,9 +9,15 @@ from soulra.core.auth import get_current_user_ws
 from soulra.services.practice_builder import save_conversation_and_create_arc
 from soulra.services.token_usage import persist_token_usage
 from soulra.schemas.websocket import (
-    StartMessage, ClarificationMessage,
-    StatusEvent, ClarifyEvent, ChipsEvent,
-    TraditionDoneEvent, ActionStepEvent, DoneEvent, ErrorEvent,
+    StartMessage,
+    ClarificationMessage,
+    StatusEvent,
+    ClarifyEvent,
+    ChipsEvent,
+    TraditionDoneEvent,
+    ActionStepEvent,
+    DoneEvent,
+    ErrorEvent,
 )
 from soulra.core.logging import logger
 from soulra.graph.state import make_initial_state
@@ -54,10 +60,12 @@ async def chat_ws(websocket: WebSocket):
         await websocket.send_text(json.dumps(payload))
 
     if current_user.tokens_used >= current_user.token_limit:
-        await send(ErrorEvent(
-            message="Token usage limit reached. Contact an administrator to increase your limit.",
-            code="TOKEN_LIMIT_EXCEEDED",
-        ).model_dump())
+        await send(
+            ErrorEvent(
+                message="Token usage limit reached. Contact an administrator to increase your limit.",
+                code="TOKEN_LIMIT_EXCEEDED",
+            ).model_dump()
+        )
         await websocket.close()
         return
 
@@ -90,7 +98,10 @@ async def chat_ws(websocket: WebSocket):
                 etype = event.get("event", "")
 
                 if etype == "on_chain_start" and name in (
-                    "retrieve", "grade_docs", "rewrite_query", "clarify"
+                    "retrieve",
+                    "grade_docs",
+                    "rewrite_query",
+                    "clarify",
                 ):
                     await send(StatusEvent(node=name).model_dump())
 
@@ -111,7 +122,11 @@ async def chat_ws(websocket: WebSocket):
                     break  # graph is now paused at interrupt_before["retrieve_refined"]
 
             if not clarify_done:
-                await send(ErrorEvent(message="Conversation ended before clarification", code="GRAPH_INCOMPLETE").model_dump())
+                await send(
+                    ErrorEvent(
+                        message="Conversation ended before clarification", code="GRAPH_INCOMPLETE"
+                    ).model_dump()
+                )
                 await websocket.close()
                 return
 
@@ -132,6 +147,10 @@ async def chat_ws(websocket: WebSocket):
                 as_node="retrieve_refined",
             )
 
+            conv_id: str | None = None
+            tradition_cards: list = []
+            action_steps: list = []
+
             async for event in graph.astream_events(None, config, version="v2"):
                 name = event.get("name", "")
                 etype = event.get("event", "")
@@ -148,23 +167,25 @@ async def chat_ws(websocket: WebSocket):
                     for step in action_steps:
                         await send(ActionStepEvent(**step).model_dump())
                     conv_id = str(uuid.uuid4())
-                    asyncio.create_task(save_conversation_and_create_arc(
-                        conversation_id=conv_id,
-                        thread_id=thread_id,
-                        situation=msg.situation,
-                        clarify_q=clarify_q,
-                        clarify_ans=clarification.choice,
-                        tradition_cards_data=tradition_cards,
-                        action_steps_data=action_steps,
-                        user_id=current_user.id,
-                    ))
+                    asyncio.create_task(
+                        save_conversation_and_create_arc(
+                            conversation_id=conv_id,
+                            thread_id=thread_id,
+                            situation=msg.situation,
+                            clarify_q=clarify_q,
+                            clarify_ans=clarification.choice,
+                            tradition_cards_data=tradition_cards,
+                            action_steps_data=action_steps,
+                            user_id=current_user.id,
+                        )
+                    )
                     break
 
             async with AsyncSessionLocal() as usage_db:
                 await persist_token_usage(
                     usage_db,
                     user_id=current_user.id,
-                    conversation_id=uuid.UUID(conv_id) if tradition_cards and action_steps else None,
+                    conversation_id=uuid.UUID(conv_id) if conv_id else None,
                     usage_metadata=usage_cb.usage_metadata,
                 )
 

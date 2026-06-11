@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,6 @@ from soulra.core.auth import get_current_user
 from soulra.database import get_db
 from soulra.models.conversation import Conversation
 from soulra.models.practice import PracticeArc, PracticeDay
-from soulra.models.tradition_card import TraditionCard
 from soulra.models.user import User
 from soulra.schemas.practice import PracticeArcOut, PracticeDayOut, ReflectBody
 from soulra.schemas.responses import SuccessResponse
@@ -18,7 +18,7 @@ from soulra.services.practice_builder import _build_days
 router = APIRouter(tags=["practice"])
 
 
-def _day_state(day: PracticeDay, current_day: int) -> str:
+def _day_state(day: PracticeDay, current_day: int) -> Literal["done", "today", "future"]:
     if day.completed:
         return "done"
     if day.day_number == current_day:
@@ -109,7 +109,10 @@ async def create_practice_arc(
             select(PracticeArc)
             .join(Conversation, Conversation.id == PracticeArc.conversation_id)
             .options(selectinload(PracticeArc.days))
-            .where(PracticeArc.conversation_id == conversation_id, Conversation.user_id == current_user.id)
+            .where(
+                PracticeArc.conversation_id == conversation_id,
+                Conversation.user_id == current_user.id,
+            )
         )
     ).scalar_one_or_none()
     if existing:
@@ -128,7 +131,9 @@ async def create_practice_arc(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     if not conv.action_steps or not conv.tradition_cards:
-        raise HTTPException(status_code=422, detail="Conversation has no action steps or tradition cards")
+        raise HTTPException(
+            status_code=422, detail="Conversation has no action steps or tradition cards"
+        )
 
     now = datetime.now(timezone.utc)
     arc = PracticeArc(

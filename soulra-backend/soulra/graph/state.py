@@ -6,19 +6,19 @@ from langgraph.graph.message import add_messages
 
 class SoulraState(TypedDict):
     situation: str
-    tradition_hints: list[str]    # extracted by intake: ["stoic", "buddhist"]
-    query: str                    # current search query (may be rewritten)
+    tradition_hints: list[str]  # extracted by intake: ["stoic", "buddhist"]
+    query: str  # current search query (may be rewritten)
     retrieved_docs: list[Document]
-    reranked_docs: list[Document]      # top-5 after Cohere rerank + U-shape
-    grade_result: str             # "relevant" | "not_relevant"
+    reranked_docs: list[Document]  # top-5 after Cohere rerank + U-shape
+    grade_result: str  # "relevant" | "not_relevant"
     clarify_question: str
     clarify_chips: list[str]
-    clarify_answer: str | None    # None = graph paused at interrupt
+    clarify_answer: str | None  # None = graph paused at interrupt
     refined_docs: list[Document]
     tradition_cards: list[dict]
     action_steps: list[dict]
     messages: Annotated[list, add_messages]
-    rewrite_count: int            # max 2 rewrites before forcing clarify
+    rewrite_count: int  # max 2 rewrites before forcing clarify
 
 
 def make_initial_state(situation: str) -> SoulraState:

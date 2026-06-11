@@ -72,6 +72,7 @@ async def test_get_current_user_creates_user_on_first_sight(test_db, rsa_keypair
     assert user.token_limit == 1_000_000
 
     from sqlalchemy import select
+
     events = (await test_db.execute(select(LoginEvent))).scalars().all()
     assert len(events) == 1
     assert events[0].event_type == "signup"
@@ -80,6 +81,7 @@ async def test_get_current_user_creates_user_on_first_sight(test_db, rsa_keypair
 @pytest.mark.asyncio
 async def test_get_current_user_missing_token_raises_401(test_db):
     from starlette.requests import Request
+
     request = Request({"type": "http", "headers": [], "client": ("127.0.0.1", 1)})
     with pytest.raises(HTTPException) as exc_info:
         await auth_module.get_current_user(request, test_db)

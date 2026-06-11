@@ -7,24 +7,31 @@ export function UsersTable({ users: initialUsers }: { users: AdminUser[] }) {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   async function handleLimitChange(userId: string, value: string) {
+    if (value.trim() === "") return;
     const tokenLimit = Number(value);
     if (!Number.isFinite(tokenLimit) || tokenLimit < 0) return;
     setSavingId(userId);
-    const updated = await updateAdminUser(userId, { token_limit: tokenLimit });
-    if (updated) {
-      setUsers(prev => prev.map(u => (u.id === userId ? updated : u)));
+    try {
+      const updated = await updateAdminUser(userId, { token_limit: tokenLimit });
+      if (updated) {
+        setUsers(prev => prev.map(u => (u.id === userId ? updated : u)));
+      }
+    } finally {
+      setSavingId(null);
     }
-    setSavingId(null);
   }
 
   async function handleRoleToggle(userId: string, currentRole: "user" | "admin") {
     const role = currentRole === "admin" ? "user" : "admin";
     setSavingId(userId);
-    const updated = await updateAdminUser(userId, { role });
-    if (updated) {
-      setUsers(prev => prev.map(u => (u.id === userId ? updated : u)));
+    try {
+      const updated = await updateAdminUser(userId, { role });
+      if (updated) {
+        setUsers(prev => prev.map(u => (u.id === userId ? updated : u)));
+      }
+    } finally {
+      setSavingId(null);
     }
-    setSavingId(null);
   }
 
   return (

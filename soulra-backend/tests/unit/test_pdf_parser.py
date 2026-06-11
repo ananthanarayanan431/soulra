@@ -1,4 +1,3 @@
-import pytest
 import io
 from unittest.mock import patch, MagicMock
 
@@ -13,6 +12,7 @@ def test_extract_text_returns_documents():
         mock_reader.return_value.pages = [page]
 
         from soulra.services.ingestion.pdf_parser import extract_text_from_pdf
+
         docs = extract_text_from_pdf(file_like, metadata={"tradition": "stoic", "author": "Marcus"})
 
     assert len(docs) == 1
@@ -29,5 +29,6 @@ def test_extract_text_skips_empty_pages():
         p2.extract_text.return_value = "   "  # whitespace only
         mock_reader.return_value.pages = [p1, p2]
         from soulra.services.ingestion.pdf_parser import extract_text_from_pdf
+
         docs = extract_text_from_pdf(file_like, metadata={})
     assert len(docs) == 1

@@ -10,9 +10,12 @@ async def test_pipeline_run_returns_chunk_count(mock_vectorstore):
     pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
     mock_vectorstore.aadd_documents = AsyncMock(return_value=["id1", "id2"])
 
-    with patch("soulra.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse, \
-         patch("soulra.services.ingestion.pipeline.chunk_documents") as mock_chunk:
+    with (
+        patch("soulra.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse,
+        patch("soulra.services.ingestion.pipeline.chunk_documents") as mock_chunk,
+    ):
         from langchain_core.documents import Document
+
         mock_parse.return_value = [Document(page_content="text", metadata={})]
         mock_chunk.return_value = [
             Document(page_content="chunk1", metadata={"tradition": "stoic"}),
@@ -22,7 +25,12 @@ async def test_pipeline_run_returns_chunk_count(mock_vectorstore):
         result = await pipeline.run(
             file=io.BytesIO(b"pdf"),
             filename="test.pdf",
-            metadata={"tradition": "stoic", "author": "Marcus", "source": "Meditations", "era": "ancient"},
+            metadata={
+                "tradition": "stoic",
+                "author": "Marcus",
+                "source": "Meditations",
+                "era": "ancient",
+            },
         )
 
     assert result["chunks_created"] == 2
@@ -37,9 +45,12 @@ async def test_pipeline_run_raises_ingestion_error_on_failure(mock_vectorstore):
     mock_vectorstore.aadd_documents = AsyncMock(side_effect=Exception("DB error"))
     pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
 
-    with patch("soulra.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse, \
-         patch("soulra.services.ingestion.pipeline.chunk_documents") as mock_chunk:
+    with (
+        patch("soulra.services.ingestion.pipeline.extract_text_from_pdf") as mock_parse,
+        patch("soulra.services.ingestion.pipeline.chunk_documents") as mock_chunk,
+    ):
         from langchain_core.documents import Document
+
         mock_parse.return_value = [Document(page_content="t", metadata={})]
         mock_chunk.return_value = [Document(page_content="c", metadata={})]
 
@@ -50,6 +61,7 @@ async def test_pipeline_run_raises_ingestion_error_on_failure(mock_vectorstore):
 @pytest.mark.asyncio
 async def test_pipeline_run_handles_text_content(mock_vectorstore):
     from soulra.services.ingestion.pipeline import IngestionPipeline
+
     pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
     mock_vectorstore.aadd_documents = AsyncMock(return_value=[])
 
@@ -70,8 +82,7 @@ async def test_pipeline_propagates_ingestion_error_unwrapped(mock_vectorstore):
     pipeline = IngestionPipeline(vectorstore=mock_vectorstore)
     original = IngestionError("no text found")
 
-    with patch("soulra.services.ingestion.pipeline.extract_text_from_pdf",
-               side_effect=original):
+    with patch("soulra.services.ingestion.pipeline.extract_text_from_pdf", side_effect=original):
         with pytest.raises(IngestionError) as exc_info:
             await pipeline.run(file=io.BytesIO(b"pdf"), filename="empty.pdf", metadata={})
 

@@ -6,6 +6,7 @@ from typing import Any
 @lru_cache
 def get_embeddings():
     from soulra.services.llm.factory import make_embeddings
+
     return make_embeddings()
 
 
@@ -38,21 +39,21 @@ def get_vectorstore():
 
 def get_retriever():
     if _retriever is None:
-        raise RuntimeError(
-            "Retriever not initialised — call set_retriever() during app lifespan"
-        )
+        raise RuntimeError("Retriever not initialised — call set_retriever() during app lifespan")
     return _retriever
 
 
 @lru_cache
 def get_smart_llm():
     from soulra.services.llm.factory import make_smart_llm
+
     return make_smart_llm()
 
 
 @lru_cache
 def get_fast_llm():
     from soulra.services.llm.factory import make_fast_llm
+
     return make_fast_llm()
 
 

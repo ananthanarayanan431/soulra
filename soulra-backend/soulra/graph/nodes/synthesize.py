@@ -29,7 +29,7 @@ class TraditionCard(BaseModel):
     quote: str
     citation: str
     analysis: str
-    source_passage: str   # verbatim excerpt ≤200 chars grounding this card
+    source_passage: str  # verbatim excerpt ≤200 chars grounding this card
 
 
 class ActionStep(BaseModel):

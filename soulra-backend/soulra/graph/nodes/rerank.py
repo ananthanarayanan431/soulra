@@ -26,7 +26,9 @@ def _near_dedup(docs: list[Document], threshold: float = _DEDUP_THRESHOLD) -> li
     accepted: list[Document] = []
     for doc in docs:
         lead = doc.page_content[:_DEDUP_LEAD_CHARS]
-        if not any(_jaccard(lead, a.page_content[:_DEDUP_LEAD_CHARS]) > threshold for a in accepted):
+        if not any(
+            _jaccard(lead, a.page_content[:_DEDUP_LEAD_CHARS]) > threshold for a in accepted
+        ):
             accepted.append(doc)
     return accepted
 
@@ -47,7 +49,11 @@ def _u_shape(docs: list[Document]) -> list[Document]:
     return [d for d in result if d is not None]
 
 
-def create_rerank_node(cohere_client: "cohere.AsyncClient", input_key: str = "retrieved_docs", output_key: str = "reranked_docs"):
+def create_rerank_node(
+    cohere_client: "cohere.AsyncClient",
+    input_key: str = "retrieved_docs",
+    output_key: str = "reranked_docs",
+):
     async def rerank(state: SoulraState) -> dict:
         docs = cast(list[Document], state.get(input_key) or [])
         if not docs:

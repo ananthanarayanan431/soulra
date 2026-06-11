@@ -122,33 +122,37 @@ export function useSoulraChat(situation: string) {
     let ws: WebSocket | null = null;
 
     (async () => {
-      const token = await getToken();
-      if (cancelled) return;
+      try {
+        const token = await getToken();
+        if (cancelled) return;
 
-      const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
-      const url = token
-        ? `${WS_BASE}/ws/chat?token=${encodeURIComponent(token)}`
-        : `${WS_BASE}/ws/chat`;
+        const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
+        const url = token
+          ? `${WS_BASE}/ws/chat?token=${encodeURIComponent(token)}`
+          : `${WS_BASE}/ws/chat`;
 
-      ws = new WebSocket(url);
-      wsRef.current = ws;
+        ws = new WebSocket(url);
+        wsRef.current = ws;
 
-      ws.onopen = () => {
-        const msg: WsClientMessage = { type: "start", situation };
-        ws!.send(JSON.stringify(msg));
-        dispatch({ type: "OPEN" });
-      };
+        ws.onopen = () => {
+          const msg: WsClientMessage = { type: "start", situation };
+          ws!.send(JSON.stringify(msg));
+          dispatch({ type: "OPEN" });
+        };
 
-      ws.onmessage = (ev: MessageEvent<string>) => {
-        try {
-          const event = JSON.parse(ev.data) as WsServerEvent;
-          dispatch({ type: "EVENT", event });
-        } catch {
-          // malformed message — ignore
-        }
-      };
+        ws.onmessage = (ev: MessageEvent<string>) => {
+          try {
+            const event = JSON.parse(ev.data) as WsServerEvent;
+            dispatch({ type: "EVENT", event });
+          } catch {
+            // malformed message — ignore
+          }
+        };
 
-      ws.onerror = () => dispatch({ type: "WS_ERROR" });
+        ws.onerror = () => dispatch({ type: "WS_ERROR" });
+      } catch {
+        if (!cancelled) dispatch({ type: "WS_ERROR" });
+      }
     })();
 
     return () => {

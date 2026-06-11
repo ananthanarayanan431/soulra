@@ -1,10 +1,20 @@
 # app/graph/nodes/intake.py
+from typing import cast
+
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from soulra.graph.state import SoulraState
 
-TRADITION_OPTIONS = ["stoic", "vedanta", "buddhist", "sufi", "taoist",
-                     "jewish", "christian_mystic", "zen"]
+TRADITION_OPTIONS = [
+    "stoic",
+    "vedanta",
+    "buddhist",
+    "sufi",
+    "taoist",
+    "jewish",
+    "christian_mystic",
+    "zen",
+]
 
 INTAKE_PROMPT = """You are helping route a user's situation to the right wisdom traditions.
 Given this situation: {situation}
@@ -48,7 +58,7 @@ def create_intake_node(llm: ChatOpenAI):
             situation=state["situation"],
             options=TRADITION_OPTIONS,
         )
-        result: IntakeOutput = await structured_llm.ainvoke(prompt)
+        result = cast(IntakeOutput, await structured_llm.ainvoke(prompt))
         return {
             "tradition_hints": _sanitize_hints(result.tradition_hints),
             "query": result.query,

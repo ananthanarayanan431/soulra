@@ -1,6 +1,6 @@
 import pytest
 import uuid
-from soulra.models.conversation import Conversation, ActionStep
+from soulra.models.conversation import Conversation
 
 
 @pytest.mark.asyncio
@@ -56,7 +56,9 @@ async def test_list_conversations_supports_offset(client, test_db, test_user):
     """GET /conversations must support offset-based pagination."""
     # Create 3 conversations
     for i in range(3):
-        c = Conversation(thread_id=f"thread-offset-{i}", situation=f"situation {i}", user_id=test_user.id)
+        c = Conversation(
+            thread_id=f"thread-offset-{i}", situation=f"situation {i}", user_id=test_user.id
+        )
         test_db.add(c)
     await test_db.flush()
 

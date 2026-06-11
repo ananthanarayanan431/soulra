@@ -6,6 +6,14 @@ import type { IngestJob } from "@/lib/api";
 
 type Mode = "pdf" | "url" | "youtube" | "text";
 
+const STEPS = [
+  "Uploading file…",
+  "Parsing document…",
+  "Splitting into passages…",
+  "Generating embeddings…",
+  "Indexing in vector store…",
+];
+
 type JobState =
   | { phase: "idle" }
   | { phase: "submitting" }
@@ -46,23 +54,25 @@ export function IngestPanel({ traditionSlug, traditionName, traditionEra, onDone
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("");
   const [jobState, setJobState] = useState<JobState>({ phase: "idle" });
-
-  const STEPS = [
-    "Uploading file…",
-    "Parsing document…",
-    "Splitting into passages…",
-    "Generating embeddings…",
-    "Indexing in vector store…",
-  ];
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const busy = jobState.phase === "submitting" || jobState.phase === "processing";
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    if (jobState.phase !== "processing") { setStepIndex(0); return; }
+    if (jobState.phase !== "processing") {
+      const t = setTimeout(() => setStepIndex(0), 0);
+      return () => clearTimeout(t);
+    }
     const t = setInterval(() => setStepIndex(i => Math.min(i + 1, STEPS.length - 1)), 3500);
     return () => clearInterval(t);
   }, [jobState.phase]);
+
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    };
+  }, []);
 
   function switchMode(m: Mode) {
     setMode(m);
@@ -73,15 +83,16 @@ export function IngestPanel({ traditionSlug, traditionName, traditionEra, onDone
   }
 
   function pollJob(jobId: string) {
-    const interval = setInterval(async () => {
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    pollingIntervalRef.current = setInterval(async () => {
       const job = await getIngestJob(jobId);
       if (!job) return;
       if (job.status === "done") {
-        clearInterval(interval);
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         setJobState({ phase: "done", chunks: job.chunks_created ?? 0 });
         onDone?.();
       } else if (job.status === "failed") {
-        clearInterval(interval);
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         setJobState({ phase: "error", message: job.error ?? "Ingestion failed" });
       }
     }, 2000);

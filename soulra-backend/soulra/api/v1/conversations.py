@@ -166,7 +166,9 @@ async def delete_conversation(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == current_user.id)
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id, Conversation.user_id == current_user.id
+    )
     row = (await db.execute(stmt)).scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Conversation not found")

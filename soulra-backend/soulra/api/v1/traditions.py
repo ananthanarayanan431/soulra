@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from soulra.database import get_db
 from soulra.models.tradition import Tradition
 from soulra.schemas.responses import SuccessResponse
-from soulra.schemas.tradition import CreateTradition, PreferencesUpdate, TraditionOut, TraditionsResponse, TraditionUpdate
+from soulra.schemas.tradition import (
+    CreateTradition,
+    PreferencesUpdate,
+    TraditionOut,
+    TraditionsResponse,
+    TraditionUpdate,
+)
 
 
 def _slugify(name: str) -> str:
@@ -15,6 +21,7 @@ def _slugify(name: str) -> str:
     s = re.sub(r"[^\w\s-]", "", s)
     s = re.sub(r"[\s_]+", "-", s)
     return s.strip("-")
+
 
 router = APIRouter(tags=["traditions"])
 
@@ -36,7 +43,11 @@ _COUNTS_SQL = text("""
 async def _passage_counts(db: AsyncSession) -> dict[str, dict]:
     try:
         rows = (await db.execute(_COUNTS_SQL, {"collection": _COLLECTION})).mappings().all()
-        return {r["tradition_slug"]: {"passages": r["passages"], "sources": r["sources"]} for r in rows if r["tradition_slug"]}
+        return {
+            r["tradition_slug"]: {"passages": r["passages"], "sources": r["sources"]}
+            for r in rows
+            if r["tradition_slug"]
+        }
     except Exception:
         return {}
 
@@ -48,7 +59,9 @@ async def _passage_counts(db: AsyncSession) -> dict[str, dict]:
     description="Returns all wisdom traditions with live passage/source counts from the vector store and the current user selection.",
 )
 async def list_traditions(
-    era: str | None = Query(default=None, description="Filter by era: ancient, medieval, perennial"),
+    era: str | None = Query(
+        default=None, description="Filter by era: ancient, medieval, perennial"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Tradition).order_by(Tradition.name)
@@ -60,22 +73,26 @@ async def list_traditions(
     traditions = []
     for t in rows:
         c = counts.get(t.slug, {"passages": 0, "sources": 0})
-        traditions.append(TraditionOut(
-            slug=t.slug,
-            name=t.name,
-            origin=t.origin,
-            era=t.era,
-            sources=c["sources"],
-            passages=c["passages"],
-            selected=t.user_selected,
-            description=t.description,
-        ))
+        traditions.append(
+            TraditionOut(
+                slug=t.slug,
+                name=t.name,
+                origin=t.origin,
+                era=t.era,
+                sources=c["sources"],
+                passages=c["passages"],
+                selected=t.user_selected,
+                description=t.description,
+            )
+        )
 
-    return SuccessResponse(data=TraditionsResponse(
-        traditions=traditions,
-        total_sources=sum(t.sources for t in traditions),
-        total_passages=sum(t.passages for t in traditions),
-    ))
+    return SuccessResponse(
+        data=TraditionsResponse(
+            traditions=traditions,
+            total_sources=sum(t.sources for t in traditions),
+            total_passages=sum(t.passages for t in traditions),
+        )
+    )
 
 
 @router.get(
@@ -110,16 +127,18 @@ async def create_tradition(body: CreateTradition, db: AsyncSession = Depends(get
     db.add(tradition)
     await db.commit()
     await db.refresh(tradition)
-    return SuccessResponse(data=TraditionOut(
-        slug=tradition.slug,
-        name=tradition.name,
-        origin=tradition.origin,
-        era=tradition.era,
-        sources=0,
-        passages=0,
-        selected=False,
-        description=tradition.description,
-    ))
+    return SuccessResponse(
+        data=TraditionOut(
+            slug=tradition.slug,
+            name=tradition.name,
+            origin=tradition.origin,
+            era=tradition.era,
+            sources=0,
+            passages=0,
+            selected=False,
+            description=tradition.description,
+        )
+    )
 
 
 @router.put(
@@ -151,16 +170,18 @@ async def get_tradition(slug: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Tradition not found")
     counts = await _passage_counts(db)
     c = counts.get(row.slug, {"passages": 0, "sources": 0})
-    return SuccessResponse(data=TraditionOut(
-        slug=row.slug,
-        name=row.name,
-        origin=row.origin,
-        era=row.era,
-        sources=c["sources"],
-        passages=c["passages"],
-        selected=row.user_selected,
-        description=row.description,
-    ))
+    return SuccessResponse(
+        data=TraditionOut(
+            slug=row.slug,
+            name=row.name,
+            origin=row.origin,
+            era=row.era,
+            sources=c["sources"],
+            passages=c["passages"],
+            selected=row.user_selected,
+            description=row.description,
+        )
+    )
 
 
 @router.put(
@@ -187,16 +208,18 @@ async def update_tradition(slug: str, body: TraditionUpdate, db: AsyncSession = 
 
     counts = await _passage_counts(db)
     c = counts.get(row.slug, {"passages": 0, "sources": 0})
-    return SuccessResponse(data=TraditionOut(
-        slug=row.slug,
-        name=row.name,
-        origin=row.origin,
-        era=row.era,
-        sources=c["sources"],
-        passages=c["passages"],
-        selected=row.user_selected,
-        description=row.description,
-    ))
+    return SuccessResponse(
+        data=TraditionOut(
+            slug=row.slug,
+            name=row.name,
+            origin=row.origin,
+            era=row.era,
+            sources=c["sources"],
+            passages=c["passages"],
+            selected=row.user_selected,
+            description=row.description,
+        )
+    )
 
 
 @router.delete(

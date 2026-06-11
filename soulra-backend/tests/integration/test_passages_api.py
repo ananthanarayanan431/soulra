@@ -18,7 +18,10 @@ async def test_list_passages_returns_array(client):
 @pytest.mark.asyncio
 async def test_list_passages_with_tradition_filter(client):
     mock_vs = MagicMock()
-    doc = Document(page_content="Stoic wisdom.", metadata={"id": "p-1", "tradition": "stoic", "author": "Marcus"})
+    doc = Document(
+        page_content="Stoic wisdom.",
+        metadata={"id": "p-1", "tradition": "stoic", "author": "Marcus"},
+    )
     mock_vs.asimilarity_search = AsyncMock(return_value=[doc])
     with patch("soulra.api.v1.passages._get_vs", return_value=mock_vs):
         resp = await client.get("/api/v1/passages?tradition=stoic")

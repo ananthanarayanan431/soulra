@@ -13,7 +13,9 @@ def _signed_headers(payload: dict) -> tuple[str, dict]:
     msg_id = "msg_test123"
     now = int(time.time())
     timestamp = str(now)
-    signature = wh.sign(msg_id=msg_id, timestamp=datetime.fromtimestamp(now, tz=timezone.utc), data=body)
+    signature = wh.sign(
+        msg_id=msg_id, timestamp=datetime.fromtimestamp(now, tz=timezone.utc), data=body
+    )
     headers = {
         "svix-id": msg_id,
         "svix-timestamp": timestamp,
@@ -81,6 +83,9 @@ async def test_webhook_rejects_bad_signature(test_db):
         assert resp.status_code == 400
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+    user = await test_db.get(User, "user_x")
+    assert user is None
 
 
 @pytest.mark.asyncio

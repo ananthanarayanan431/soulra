@@ -41,7 +41,13 @@ async def _check_url_not_ssrf(url: str) -> None:
         raise HTTPException(status_code=400, detail="URL host is not allowed")
     try:
         ip = ipaddress.ip_address(hostname)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
             raise HTTPException(status_code=400, detail="URL resolves to a disallowed address")
         return
     except ValueError:
@@ -53,7 +59,13 @@ async def _check_url_not_ssrf(url: str) -> None:
     for info in infos:
         try:
             ip = ipaddress.ip_address(info[4][0])
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_unspecified
+            ):
                 raise HTTPException(status_code=400, detail="URL resolves to a disallowed address")
         except ValueError:
             pass
@@ -101,11 +113,15 @@ async def ingest_pdf(
     max_bytes = settings.max_upload_mb * 1024 * 1024
     cl = request.headers.get("content-length")
     if cl and int(cl) > max_bytes:
-        raise HTTPException(status_code=413, detail=f"File exceeds {settings.max_upload_mb}MB limit")
+        raise HTTPException(
+            status_code=413, detail=f"File exceeds {settings.max_upload_mb}MB limit"
+        )
 
     content = await file.read()
     if len(content) > max_bytes:
-        raise HTTPException(status_code=413, detail=f"File exceeds {settings.max_upload_mb}MB limit")
+        raise HTTPException(
+            status_code=413, detail=f"File exceeds {settings.max_upload_mb}MB limit"
+        )
 
     filename = file.filename or "upload.pdf"
     metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
@@ -118,7 +134,9 @@ async def ingest_pdf(
     await cache.set_job(job_id_str, {"status": "processing"}, ttl=cache._PROCESSING_TTL)
     _dispatch(job, filename, metadata, upload_key=ukey)
 
-    return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=filename))
+    return SuccessResponse(
+        data=IngestJobResponse(job_id=job.id, status="processing", filename=filename)
+    )
 
 
 @router.post(
@@ -148,7 +166,9 @@ async def ingest_text(
     await cache.set_job(job_id_str, {"status": "processing"}, ttl=cache._PROCESSING_TTL)
     _dispatch(job, filename, metadata, upload_key=ukey)
 
-    return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=filename))
+    return SuccessResponse(
+        data=IngestJobResponse(job_id=job.id, status="processing", filename=filename)
+    )
 
 
 @router.post(
@@ -179,9 +199,7 @@ async def ingest_url(
     return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=url))
 
 
-_YT_PATTERN = re.compile(
-    r"(?:v=|youtu\.be/|embed/|shorts/|/v/)([a-zA-Z0-9_-]{11})"
-)
+_YT_PATTERN = re.compile(r"(?:v=|youtu\.be/|embed/|shorts/|/v/)([a-zA-Z0-9_-]{11})")
 
 
 def _extract_youtube_id(url: str) -> str | None:
@@ -207,18 +225,22 @@ async def ingest_youtube(
 ):
     video_id = _extract_youtube_id(url)
     if not video_id:
-        raise HTTPException(status_code=400, detail="Invalid YouTube URL — could not extract video ID")
+        raise HTTPException(
+            status_code=400, detail="Invalid YouTube URL — could not extract video ID"
+        )
 
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
 
         def _fetch() -> str:
-            entries = YouTubeTranscriptApi.get_transcript(video_id)
-            return " ".join(e["text"] for e in entries)
+            transcript = YouTubeTranscriptApi().fetch(video_id)
+            return " ".join(snippet.text for snippet in transcript)
 
         text = await asyncio.to_thread(_fetch)
     except ImportError:
-        raise HTTPException(status_code=501, detail="YouTube transcript support not available on this server")
+        raise HTTPException(
+            status_code=501, detail="YouTube transcript support not available on this server"
+        )
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not fetch transcript: {exc}")
 
@@ -233,7 +255,9 @@ async def ingest_youtube(
     await cache.set_job(job_id_str, {"status": "processing"}, ttl=cache._PROCESSING_TTL)
     _dispatch(job, filename, metadata, upload_key=ukey)
 
-    return SuccessResponse(data=IngestJobResponse(job_id=job.id, status="processing", filename=filename))
+    return SuccessResponse(
+        data=IngestJobResponse(job_id=job.id, status="processing", filename=filename)
+    )
 
 
 @router.get(
@@ -249,28 +273,35 @@ async def get_ingest_job(
 ):
     job_id_str = str(job_id)
 
-    # Fast path: Redis cache
+    # Ownership check against Postgres first, then overlay live fields from Redis.
+    row = (
+        await db.execute(
+            select(IngestJob).where(IngestJob.id == job_id, IngestJob.user_id == current_user.id)
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    status = row.status
+    chunks_created = row.chunks_created
+    error = row.error
+
     try:
         cached = await cache.get_job(job_id_str)
         if cached:
-            return SuccessResponse(data=IngestJobResponse(
-                job_id=job_id,
-                status=cached["status"],
-                chunks_created=cached.get("chunks_created", 0),
-                error=cached.get("error"),
-            ))
+            status = cached.get("status", status)
+            chunks_created = cached.get("chunks_created", chunks_created)
+            error = cached.get("error", error)
     except Exception:
         logger.warning("redis_cache_miss_fallback", job_id=job_id_str)
 
-    # Slow path: Postgres
-    row = (await db.execute(select(IngestJob).where(IngestJob.id == job_id, IngestJob.user_id == current_user.id))).scalar_one_or_none()
-    if not row:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return SuccessResponse(data=IngestJobResponse(
-        job_id=row.id,
-        status=row.status,
-        filename=row.filename,
-        chunks_created=row.chunks_created,
-        tokens_used=row.tokens_used,
-        error=row.error,
-    ))
+    return SuccessResponse(
+        data=IngestJobResponse(
+            job_id=row.id,
+            status=status,
+            filename=row.filename,
+            chunks_created=chunks_created,
+            tokens_used=row.tokens_used,
+            error=error,
+        )
+    )

@@ -21,12 +21,16 @@ class JournalEntry(Base):
     analysis: Mapped[str | None] = mapped_column(Text, nullable=True)
     personal_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON(), "sqlite"), nullable=False, server_default="{}"
+        ARRAY(Text).with_variant(JSON(), "sqlite"),
+        nullable=False,
+        server_default="{}",
+        default=list,
     )
     applied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     applied_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     saved_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=False,
+        TIMESTAMP(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(

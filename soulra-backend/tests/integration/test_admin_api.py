@@ -34,10 +34,15 @@ async def test_admin_can_update_user_role_and_limit(admin_client, test_db, test_
 @pytest.mark.asyncio
 async def test_admin_get_user_detail_includes_logins_and_usage(admin_client, test_db, test_user):
     test_db.add(LoginEvent(user_id=test_user.id, event_type="login", ip_address="1.2.3.4"))
-    test_db.add(TokenUsageLog(
-        user_id=test_user.id, model="anthropic/claude-sonnet-4-6",
-        prompt_tokens=10, completion_tokens=5, total_tokens=15,
-    ))
+    test_db.add(
+        TokenUsageLog(
+            user_id=test_user.id,
+            model="anthropic/claude-sonnet-4-6",
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+        )
+    )
     await test_db.flush()
 
     resp = await admin_client.get(f"/api/v1/admin/users/{test_user.id}")
@@ -72,10 +77,15 @@ async def test_admin_can_list_login_events(admin_client, test_db, test_user):
 
 @pytest.mark.asyncio
 async def test_admin_can_list_token_usage(admin_client, test_db, test_user):
-    test_db.add(TokenUsageLog(
-        user_id=test_user.id, model="anthropic/claude-sonnet-4-6",
-        prompt_tokens=100, completion_tokens=50, total_tokens=150,
-    ))
+    test_db.add(
+        TokenUsageLog(
+            user_id=test_user.id,
+            model="anthropic/claude-sonnet-4-6",
+            prompt_tokens=100,
+            completion_tokens=50,
+            total_tokens=150,
+        )
+    )
     await test_db.flush()
 
     resp = await admin_client.get("/api/v1/admin/usage")

@@ -18,9 +18,9 @@ _JOB_KEY = "job:{}"
 _UPLOAD_KEY = "upload:{}"
 
 # TTLs
-_PROCESSING_TTL = 7200   # 2 h — enough for a slow ingestion
-_DONE_TTL = 3600         # 1 h cache for completed / failed results
-_UPLOAD_TTL = 3600       # 1 h window for the worker to pick up the file
+_PROCESSING_TTL = 7200  # 2 h — enough for a slow ingestion
+_DONE_TTL = 3600  # 1 h cache for completed / failed results
+_UPLOAD_TTL = 3600  # 1 h window for the worker to pick up the file
 
 
 def init_redis(url: str) -> aioredis.Redis:
@@ -44,6 +44,7 @@ def get_redis() -> aioredis.Redis:
 
 # ── Job status ──────────────────────────────────────────────────────────────
 
+
 async def set_job(job_id: str, data: dict[str, Any], ttl: int = _DONE_TTL) -> None:
     await get_redis().setex(_JOB_KEY.format(job_id), ttl, json.dumps(data))
 
@@ -54,6 +55,7 @@ async def get_job(job_id: str) -> dict[str, Any] | None:
 
 
 # ── Temporary upload store ───────────────────────────────────────────────────
+
 
 async def store_upload(job_id: str, content: bytes) -> None:
     await get_redis().setex(_UPLOAD_KEY.format(job_id), _UPLOAD_TTL, content)

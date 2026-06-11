@@ -417,9 +417,13 @@ export interface Paginated<T> {
 }
 
 export async function listAdminUsers(limit = 50, offset = 0): Promise<Paginated<AdminUser>> {
-  const res = await authedFetch(`${BASE}/api/v1/admin/users?limit=${limit}&offset=${offset}`, { cache: "no-store" });
-  if (!res.ok) return { items: [], total: 0, limit, offset };
-  return (await res.json()).data as Paginated<AdminUser>;
+  try {
+    const res = await authedFetch(`${BASE}/api/v1/admin/users?limit=${limit}&offset=${offset}`, { cache: "no-store" });
+    if (!res.ok) return { items: [], total: 0, limit, offset };
+    return (await res.json()).data as Paginated<AdminUser>;
+  } catch {
+    return { items: [], total: 0, limit, offset };
+  }
 }
 
 export async function updateAdminUser(
@@ -448,9 +452,13 @@ export interface AdminLoginEvent {
 export async function listLoginEvents(limit = 50, offset = 0, userId?: string): Promise<Paginated<AdminLoginEvent>> {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (userId) params.set("user_id", userId);
-  const res = await authedFetch(`${BASE}/api/v1/admin/login-events?${params}`, { cache: "no-store" });
-  if (!res.ok) return { items: [], total: 0, limit, offset };
-  return (await res.json()).data as Paginated<AdminLoginEvent>;
+  try {
+    const res = await authedFetch(`${BASE}/api/v1/admin/login-events?${params}`, { cache: "no-store" });
+    if (!res.ok) return { items: [], total: 0, limit, offset };
+    return (await res.json()).data as Paginated<AdminLoginEvent>;
+  } catch {
+    return { items: [], total: 0, limit, offset };
+  }
 }
 
 export interface AdminTokenUsage {
@@ -468,7 +476,11 @@ export interface AdminTokenUsage {
 export async function listTokenUsage(limit = 50, offset = 0, userId?: string): Promise<Paginated<AdminTokenUsage>> {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (userId) params.set("user_id", userId);
-  const res = await authedFetch(`${BASE}/api/v1/admin/usage?${params}`, { cache: "no-store" });
-  if (!res.ok) return { items: [], total: 0, limit, offset };
-  return (await res.json()).data as Paginated<AdminTokenUsage>;
+  try {
+    const res = await authedFetch(`${BASE}/api/v1/admin/usage?${params}`, { cache: "no-store" });
+    if (!res.ok) return { items: [], total: 0, limit, offset };
+    return (await res.json()).data as Paginated<AdminTokenUsage>;
+  } catch {
+    return { items: [], total: 0, limit, offset };
+  }
 }
