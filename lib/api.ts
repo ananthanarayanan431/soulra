@@ -392,6 +392,8 @@ export interface MeData {
   role: "user" | "admin";
   token_limit: number;
   tokens_used: number;
+  created_at: string;
+  last_login_at: string | null;
 }
 
 export async function getMe(): Promise<MeData | null> {

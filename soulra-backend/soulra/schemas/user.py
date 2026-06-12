@@ -10,13 +10,14 @@ class MeOut(BaseModel):
     role: str
     token_limit: int
     tokens_used: int
+    created_at: datetime
+    last_login_at: datetime | None
 
     model_config = {"from_attributes": True}
 
 
 class UserOut(MeOut):
-    created_at: datetime
-    last_login_at: datetime | None
+    pass
 
 
 class LoginEventOut(BaseModel):

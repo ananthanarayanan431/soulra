@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useUser, useClerk } from "@clerk/nextjs";
+import { formatRelativeDate } from "@/lib/api";
 import type { MeData } from "@/lib/api";
 
 export function UserMenu({ me }: { me: MeData | null }) {
@@ -76,6 +77,19 @@ export function UserMenu({ me }: { me: MeData | null }) {
               <div className="font-mono text-[10px] text-muted mt-1.5">
                 {tokensLeft!.toLocaleString()} tokens left
               </div>
+
+              <div className="border-t border-line-soft my-2" />
+              <div className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1.5">
+                Account
+              </div>
+              <div className="font-mono text-[10px] text-muted">
+                First login {formatRelativeDate(me.created_at)}
+              </div>
+              {me.last_login_at && (
+                <div className="font-mono text-[10px] text-muted mt-0.5">
+                  Last login {formatRelativeDate(me.last_login_at)}
+                </div>
+              )}
             </>
           )}
 
