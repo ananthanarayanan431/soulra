@@ -15,36 +15,30 @@
 **Files:**
 - Create: `lib/clerk-theme.ts`
 
+This project uses Tailwind CSS v4 and Clerk's current SDK (v7, "Core 3"). In this version, `colorText`, `colorTextSecondary`, and `colorInputBackground` are deprecated in favor of `colorForeground`, `colorMutedForeground`, and `colorInput`. Tailwind utility classes passed via `elements` need `cssLayerName` set so they win the CSS cascade against Clerk's own styles (see Task 2, Step 1 for the matching `globals.css` change).
+
 - [ ] **Step 1: Create the theme file**
 
 ```ts
 // lib/clerk-theme.ts
-import type { Appearance } from "@clerk/types";
-
-export const clerkAppearance: Appearance = {
+export const clerkAppearance = {
+  cssLayerName: "clerk",
   variables: {
     colorPrimary: "#1d1b18",
     colorBackground: "#f7f4ee",
-    colorInputBackground: "#efeae0",
-    colorText: "#1d1b18",
-    colorTextSecondary: "#7d7568",
+    colorForeground: "#1d1b18",
+    colorMutedForeground: "#7d7568",
+    colorMuted: "#efeae0",
+    colorInput: "#efeae0",
+    colorBorder: "#cdc6b8",
     colorDanger: "#8a4a3c",
     borderRadius: "0.75rem",
     fontFamily: "var(--font-inter), system-ui, sans-serif",
   },
   elements: {
-    card: "shadow-none border border-[#cdc6b8] bg-[#f7f4ee]",
-    headerTitle: "font-serif text-[#1d1b18]",
-    headerSubtitle: "text-[#7d7568]",
-    formButtonPrimary:
-      "rounded-full bg-[#1d1b18] text-[#f7f4ee] hover:bg-[#1d1b18]/90 normal-case text-sm font-medium shadow-none",
-    socialButtonsBlockButton:
-      "rounded-xl border border-[#cdc6b8] bg-[#efeae0] hover:bg-[#e3ddd0] text-[#1d1b18]",
-    formFieldInput:
-      "rounded-xl border border-[#cdc6b8] bg-[#efeae0] text-[#1d1b18] focus:border-[#1d1b18]",
+    headerTitle: "font-serif",
+    formButtonPrimary: "rounded-full normal-case text-sm font-medium shadow-none",
     footerActionLink: "text-[#7a5c3e] hover:text-[#1d1b18]",
-    dividerLine: "bg-[#e3ddd0]",
-    dividerText: "text-[#7d7568]",
   },
 };
 ```
@@ -67,8 +61,26 @@ git commit -m "feat: add shared Clerk appearance theme"
 
 **Files:**
 - Modify: `app/layout.tsx:47,54`
+- Modify: `app/globals.css:1`
 
-- [ ] **Step 1: Import the theme and pass it to ClerkProvider**
+- [ ] **Step 1: Set up the Tailwind v4 CSS layer order**
+
+In `app/globals.css`, the file currently starts with:
+
+```css
+@import "tailwindcss";
+```
+
+Change it to:
+
+```css
+@layer theme, base, clerk, components, utilities;
+@import "tailwindcss";
+```
+
+This ensures Tailwind's utility classes (used in `lib/clerk-theme.ts`'s `elements` overrides) are applied after Clerk's own styles, which are placed in the `clerk` layer via `cssLayerName: "clerk"`.
+
+- [ ] **Step 2: Import the theme and pass it to ClerkProvider**
 
 In `app/layout.tsx`, add the import near the top (after the `"./globals.css"` import):
 
@@ -89,7 +101,7 @@ to:
     <ClerkProvider appearance={clerkAppearance}>
 ```
 
-- [ ] **Step 2: Typecheck**
+- [ ] **Step 3: Typecheck**
 
 Run: `npm run typecheck`
 Expected: passes
