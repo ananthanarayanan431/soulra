@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { Logo, Button, Squiggle } from "@/components/ui";
 
 const PRINCIPLES = [
@@ -123,6 +123,38 @@ function AuthCta({
   );
 }
 
+function HeaderAuth() {
+  const { isSignedIn } = useUser();
+  const { signOut } = useClerk();
+
+  if (isSignedIn) {
+    return (
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => signOut({ redirectUrl: "/" })}
+          className="font-mono text-[12px] text-muted hover:text-ink transition-colors"
+        >
+          Log out
+        </button>
+        <Link href="/home">
+          <Button primary>Enter Soulra →</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Link href="/sign-in">
+        <Button>Log in</Button>
+      </Link>
+      <Link href="/sign-up">
+        <Button primary>Sign up →</Button>
+      </Link>
+    </div>
+  );
+}
+
 export function LandingScreen() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
@@ -131,7 +163,7 @@ export function LandingScreen() {
       {/* top nav */}
       <header className="flex items-center justify-between px-12 py-7 border-b border-line">
         <Logo size={22} />
-        <AuthCta signedInLabel="Enter Soulra →" signedOutLabel="Sign in →" />
+        <HeaderAuth />
       </header>
 
       {/* hero */}
