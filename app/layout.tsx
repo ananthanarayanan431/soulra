@@ -45,7 +45,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider appearance={clerkAppearance}>
+    <ClerkProvider
+      appearance={clerkAppearance}
+      localization={{
+        signIn: {
+          start: {
+            title: "Sign in to Soulra",
+          },
+        },
+      }}
+    >
       <html
         lang="en"
         className={`${cormorant.variable} ${inter.variable} ${jetbrains.variable} ${caveat.variable} h-full antialiased`}

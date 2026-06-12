@@ -17,8 +17,11 @@ export const clerkAppearance = {
     formButtonPrimary: "rounded-full normal-case text-sm font-medium shadow-none",
     footerActionLink: "text-[#7a5c3e] hover:text-[#1d1b18]",
     footer: "hidden",
+    badge: "hidden",
     cardBox: "shadow-none border-none bg-transparent w-full",
     card: "shadow-none border-none bg-transparent p-0 w-full",
     rootBox: "w-full",
+    socialButtonsBlockButton: "rounded-full normal-case text-sm font-medium shadow-none",
+    formFieldInput: "rounded-xl",
   },
 };
