@@ -1,0 +1,20 @@
+export const clerkAppearance = {
+  cssLayerName: "clerk",
+  variables: {
+    colorPrimary: "#1d1b18",
+    colorBackground: "#f7f4ee",
+    colorForeground: "#1d1b18",
+    colorMutedForeground: "#7d7568",
+    colorMuted: "#efeae0",
+    colorInput: "#efeae0",
+    colorBorder: "#cdc6b8",
+    colorDanger: "#8a4a3c",
+    borderRadius: "0.75rem",
+    fontFamily: "var(--font-inter), system-ui, sans-serif",
+  },
+  elements: {
+    headerTitle: "font-serif",
+    formButtonPrimary: "rounded-full normal-case text-sm font-medium shadow-none",
+    footerActionLink: "text-[#7a5c3e] hover:text-[#1d1b18]",
+  },
+};
