@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { Logo, Button, Squiggle } from "@/components/ui";
 
 const PRINCIPLES = [
@@ -106,6 +107,31 @@ function FaqItem({
   );
 }
 
+function AuthCta({
+  signedInLabel,
+  signedOutLabel,
+}: {
+  signedInLabel: string;
+  signedOutLabel: string;
+}) {
+  const { isSignedIn } = useUser();
+  const { openSignIn } = useClerk();
+
+  if (isSignedIn) {
+    return (
+      <Link href="/home">
+        <Button primary>{signedInLabel}</Button>
+      </Link>
+    );
+  }
+
+  return (
+    <Button primary onClick={() => openSignIn()}>
+      {signedOutLabel}
+    </Button>
+  );
+}
+
 export function LandingScreen() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
@@ -114,9 +140,7 @@ export function LandingScreen() {
       {/* top nav */}
       <header className="flex items-center justify-between px-12 py-7 border-b border-line">
         <Logo size={22} />
-        <Link href="/home">
-          <Button primary>Enter Soulra →</Button>
-        </Link>
+        <AuthCta signedInLabel="Go to app →" signedOutLabel="Sign in →" />
       </header>
 
       {/* hero */}
@@ -135,9 +159,7 @@ export function LandingScreen() {
           an answer, but to show you how each tradition sees your knot.
         </p>
         <div className="flex gap-3 mt-9">
-          <Link href="/home">
-            <Button primary>Begin a conversation →</Button>
-          </Link>
+          <AuthCta signedInLabel="Begin a conversation →" signedOutLabel="Begin a conversation →" />
           <a href="#how-it-works">
             <Button>See how it works</Button>
           </a>
@@ -230,9 +252,7 @@ export function LandingScreen() {
         <div className="font-serif text-[36px] leading-snug italic max-w-[600px] mb-8">
           &ldquo;What is asking for your attention today?&rdquo;
         </div>
-        <Link href="/home">
-          <Button primary>Start a conversation →</Button>
-        </Link>
+        <AuthCta signedInLabel="Start a conversation →" signedOutLabel="Start a conversation →" />
       </section>
 
       {/* footer */}
