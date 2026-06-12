@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Wordmark, Button, Squiggle } from "@/components/ui";
+import { Logo, Button, Squiggle } from "@/components/ui";
 
 const PRINCIPLES = [
   {
@@ -113,7 +113,7 @@ export function LandingScreen() {
     <div className="min-h-screen bg-paper text-ink">
       {/* top nav */}
       <header className="flex items-center justify-between px-12 py-7 border-b border-line">
-        <Wordmark size={22} />
+        <Logo size={22} />
         <Link href="/home">
           <Button primary>Enter Soulra →</Button>
         </Link>
@@ -238,7 +238,7 @@ export function LandingScreen() {
       {/* footer */}
       <footer className="px-12 py-9 border-t border-line flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-6">
-          <Wordmark size={17} />
+          <Logo size={17} />
           <span className="font-mono text-[12px] text-muted">
             an AI wisdom companion · built on the world&rsquo;s contemplative traditions
           </span>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wordmark } from "@/components/ui";
+import { Logo } from "@/components/ui";
 import { listConversations, formatRelativeDate, getMe } from "@/lib/api";
 import type { Conversation, MeData } from "@/lib/api";
 
@@ -32,7 +32,7 @@ export function Sidebar() {
     <aside className="w-[220px] border-r border-line bg-paper-alt flex flex-col flex-shrink-0">
       <div className="px-4 py-5 pb-[18px]">
         <Link href="/">
-          <Wordmark size={18} />
+          <Logo size={18} />
         </Link>
       </div>
       <nav className="flex flex-col gap-1 px-4">
