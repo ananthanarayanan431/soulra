@@ -106,16 +106,16 @@ to:
 Run: `npm run typecheck`
 Expected: passes
 
-- [ ] **Step 3: Manual verification — themed sign-in page**
+- [ ] **Step 4: Manual verification — themed sign-in page**
 
 Run: `npm run dev` (in `/Volumes/External/soulra`)
 Open `http://localhost:3000/sign-in` in a browser.
 Expected: the card background is the warm paper color (`#f7f4ee`), the "Continue" button is a dark pill (`#1d1b18` background, light text), input fields have the paper-alt background with the line-colored border, and the header title uses the serif font — no blue Clerk-default colors remain. The "Don't have an account? Sign up" link is still present and uses the accent brown color. (The "Development mode" notice is a Clerk test-key indicator, not themeable via `appearance` — it's expected to remain visible until real Clerk keys are configured; this matches the design spec's noted limitation.)
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app/layout.tsx
+git add app/layout.tsx app/globals.css
 git commit -m "feat: theme Clerk components via ClerkProvider appearance"
 ```
 
