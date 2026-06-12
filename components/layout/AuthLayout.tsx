@@ -74,7 +74,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
         <div className="w-full max-w-[400px] flex flex-col gap-6">{children}</div>
       </div>
 
-      <div className="hidden md:flex items-center justify-center bg-ink text-paper px-12 py-16">
+      <div className="flex items-center justify-center bg-ink text-paper px-12 py-16">
         <AuthShowcase />
       </div>
     </div>
