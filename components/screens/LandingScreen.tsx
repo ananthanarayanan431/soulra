@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { Logo, Button, Squiggle } from "@/components/ui";
 
 const PRINCIPLES = [
@@ -115,20 +115,11 @@ function AuthCta({
   signedOutLabel: string;
 }) {
   const { isSignedIn } = useUser();
-  const { openSignIn } = useClerk();
-
-  if (isSignedIn) {
-    return (
-      <Link href="/home">
-        <Button primary>{signedInLabel}</Button>
-      </Link>
-    );
-  }
 
   return (
-    <Button primary onClick={() => openSignIn()}>
-      {signedOutLabel}
-    </Button>
+    <Link href={isSignedIn ? "/home" : "/sign-in"}>
+      <Button primary>{isSignedIn ? signedInLabel : signedOutLabel}</Button>
+    </Link>
   );
 }
 
