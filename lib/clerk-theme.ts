@@ -16,5 +16,6 @@ export const clerkAppearance = {
     headerTitle: "font-serif",
     formButtonPrimary: "rounded-full normal-case text-sm font-medium shadow-none",
     footerActionLink: "text-[#7a5c3e] hover:text-[#1d1b18]",
+    footer: "hidden",
   },
 };
