@@ -131,7 +131,7 @@ export function LandingScreen() {
       {/* top nav */}
       <header className="flex items-center justify-between px-12 py-7 border-b border-line">
         <Logo size={22} />
-        <AuthCta signedInLabel="Go to app →" signedOutLabel="Sign in →" />
+        <AuthCta signedInLabel="Enter Soulra →" signedOutLabel="Sign in →" />
       </header>
 
       {/* hero */}
