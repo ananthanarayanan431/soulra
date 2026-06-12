@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Wordmark, Squiggle } from "@/components/ui";
+import { Logo, Squiggle } from "@/components/ui";
 
 const SLIDES = [
   {
@@ -69,9 +69,9 @@ function AuthShowcase() {
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen grid md:grid-cols-2 bg-paper text-ink">
-      <div className="flex flex-col items-center justify-center gap-8 px-6 py-16">
-        <Wordmark size={22} />
-        <div className="w-full max-w-[400px]">{children}</div>
+      <div className="flex flex-col items-center justify-center gap-10 px-6 py-16">
+        <Logo size={24} />
+        <div className="w-full max-w-[400px] flex flex-col gap-6">{children}</div>
       </div>
 
       <div className="hidden md:flex items-center justify-center bg-ink text-paper px-12 py-16">
