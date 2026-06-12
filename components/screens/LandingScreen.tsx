@@ -123,23 +123,18 @@ function AuthCta({
   );
 }
 
-function HeaderAuth() {
+function AuthControls() {
   const { isSignedIn } = useUser();
   const { signOut } = useClerk();
 
   if (isSignedIn) {
     return (
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => signOut({ redirectUrl: "/" })}
-          className="font-mono text-[12px] text-muted hover:text-ink transition-colors"
-        >
-          Log out
-        </button>
-        <Link href="/home">
-          <Button primary>Enter Soulra →</Button>
-        </Link>
-      </div>
+      <button
+        onClick={() => signOut({ redirectUrl: "/" })}
+        className="font-mono text-[12px] text-muted hover:text-ink transition-colors"
+      >
+        Log out
+      </button>
     );
   }
 
@@ -149,7 +144,19 @@ function HeaderAuth() {
         <Button>Log in</Button>
       </Link>
       <Link href="/sign-up">
-        <Button primary>Sign up →</Button>
+        <Button>Sign up →</Button>
+      </Link>
+    </div>
+  );
+}
+
+function HeaderAuth() {
+  return (
+    <div className="flex items-center gap-5">
+      <AuthControls />
+      <div className="w-px h-6 bg-line" />
+      <Link href="/home">
+        <Button primary>Enter Soulra →</Button>
       </Link>
     </div>
   );
