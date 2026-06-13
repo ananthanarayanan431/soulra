@@ -46,8 +46,10 @@ _COUNTS_SQL = text("""
 async def _passage_counts(db: AsyncSession, user_id: str) -> dict[str, dict]:
     try:
         rows = (
-            await db.execute(_COUNTS_SQL, {"collection": _COLLECTION, "user_id": user_id})
-        ).mappings().all()
+            (await db.execute(_COUNTS_SQL, {"collection": _COLLECTION, "user_id": user_id}))
+            .mappings()
+            .all()
+        )
         return {
             r["tradition_slug"]: {"passages": r["passages"], "sources": r["sources"]}
             for r in rows
@@ -173,8 +175,10 @@ async def update_preferences(
 ):
     selected_set = set(body.selected)
     rows = (
-        await db.execute(select(Tradition).where(Tradition.user_id == current_user.id))
-    ).scalars().all()
+        (await db.execute(select(Tradition).where(Tradition.user_id == current_user.id)))
+        .scalars()
+        .all()
+    )
     for t in rows:
         t.user_selected = t.slug in selected_set
     await db.commit()

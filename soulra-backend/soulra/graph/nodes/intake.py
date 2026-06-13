@@ -24,9 +24,7 @@ DEFAULT_TRADITION_OPTIONS = [
 async def get_tradition_options(user_id: str | None) -> list[str]:
     """Tradition slugs the intake LLM can route to for this user."""
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Tradition.slug).where(Tradition.user_id == user_id)
-        )
+        result = await session.execute(select(Tradition.slug).where(Tradition.user_id == user_id))
         slugs = [row[0] for row in result.all()]
     return slugs or DEFAULT_TRADITION_OPTIONS
 

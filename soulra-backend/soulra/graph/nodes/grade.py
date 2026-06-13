@@ -49,7 +49,9 @@ def create_grade_node(llm: ChatOpenAI):
             )
             for doc in sample
         ]
-        results: list[GradeOutput] = await asyncio.gather(*[_safe_grade(p, config) for p in prompts])
+        results: list[GradeOutput] = await asyncio.gather(
+            *[_safe_grade(p, config) for p in prompts]
+        )
         relevant_count = sum(1 for r in results if r.score == "yes")
         sampled_count = len(sample)
         threshold = max(1, ceil(sampled_count / 2))

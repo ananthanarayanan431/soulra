@@ -60,6 +60,4 @@ async def test_search_filters_by_user_id_only_when_no_tradition():
 
     await retriever.search("query", tradition_filter=None, user_id="user_123", k=5)
 
-    vs.asimilarity_search.assert_awaited_once_with(
-        "query", k=5, filter={"user_id": "user_123"}
-    )
+    vs.asimilarity_search.assert_awaited_once_with("query", k=5, filter={"user_id": "user_123"})

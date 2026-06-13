@@ -31,7 +31,9 @@ async def test_get_tradition_returns_404_for_unknown_slug(client):
 
 @pytest.mark.asyncio
 async def test_update_tradition_applies_partial_changes(client, test_db, test_user):
-    row = Tradition(user_id=test_user.id, slug="taoism", name="Taoism", origin="China", era="ancient")
+    row = Tradition(
+        user_id=test_user.id, slug="taoism", name="Taoism", origin="China", era="ancient"
+    )
     test_db.add(row)
     await test_db.flush()
 
@@ -51,7 +53,13 @@ async def test_update_tradition_returns_404_for_unknown_slug(client):
 
 @pytest.mark.asyncio
 async def test_delete_tradition_removes_record(client, test_db, test_user):
-    row = Tradition(user_id=test_user.id, slug="confucianism", name="Confucianism", origin="China", era="ancient")
+    row = Tradition(
+        user_id=test_user.id,
+        slug="confucianism",
+        name="Confucianism",
+        origin="China",
+        era="ancient",
+    )
     test_db.add(row)
     await test_db.flush()
 
@@ -85,9 +93,15 @@ async def test_create_tradition_same_slug_for_different_users(client, other_clie
 
 
 @pytest.mark.asyncio
-async def test_list_traditions_only_returns_own_rows(client, other_client, test_db, test_user, other_user):
-    test_db.add(Tradition(user_id=test_user.id, slug="stoic", name="Stoic", origin="Rome", era="ancient"))
-    test_db.add(Tradition(user_id=other_user.id, slug="zen", name="Zen", origin="Japan", era="medieval"))
+async def test_list_traditions_only_returns_own_rows(
+    client, other_client, test_db, test_user, other_user
+):
+    test_db.add(
+        Tradition(user_id=test_user.id, slug="stoic", name="Stoic", origin="Rome", era="ancient")
+    )
+    test_db.add(
+        Tradition(user_id=other_user.id, slug="zen", name="Zen", origin="Japan", era="medieval")
+    )
     await test_db.flush()
 
     resp = await client.get("/api/v1/traditions")
