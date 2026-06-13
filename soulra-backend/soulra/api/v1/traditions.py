@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from soulra.core.auth import get_current_user
 from soulra.database import get_db
 from soulra.models.tradition import Tradition
+from soulra.models.user import User
 from soulra.schemas.responses import SuccessResponse
 from soulra.schemas.tradition import (
     CreateTradition,
@@ -36,13 +38,16 @@ _COUNTS_SQL = text("""
     WHERE collection_id = (
         SELECT uuid FROM langchain_pg_collection WHERE name = :collection
     )
+    AND cmetadata->>'user_id' = :user_id
     GROUP BY cmetadata->>'tradition'
 """)
 
 
-async def _passage_counts(db: AsyncSession) -> dict[str, dict]:
+async def _passage_counts(db: AsyncSession, user_id: str) -> dict[str, dict]:
     try:
-        rows = (await db.execute(_COUNTS_SQL, {"collection": _COLLECTION})).mappings().all()
+        rows = (
+            await db.execute(_COUNTS_SQL, {"collection": _COLLECTION, "user_id": user_id})
+        ).mappings().all()
         return {
             r["tradition_slug"]: {"passages": r["passages"], "sources": r["sources"]}
             for r in rows
@@ -56,19 +61,20 @@ async def _passage_counts(db: AsyncSession) -> dict[str, dict]:
     "/traditions",
     response_model=SuccessResponse[TraditionsResponse],
     summary="List wisdom traditions",
-    description="Returns all wisdom traditions with live passage/source counts from the vector store and the current user selection.",
+    description="Returns the current user's wisdom traditions with live passage/source counts from the vector store and the current user selection.",
 )
 async def list_traditions(
     era: str | None = Query(
         default=None, description="Filter by era: ancient, medieval, perennial"
     ),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Tradition).order_by(Tradition.name)
+    stmt = select(Tradition).where(Tradition.user_id == current_user.id).order_by(Tradition.name)
     if era and era != "all":
         stmt = stmt.where(Tradition.era == era)
     rows = (await db.execute(stmt)).scalars().all()
-    counts = await _passage_counts(db)
+    counts = await _passage_counts(db, current_user.id)
 
     traditions = []
     for t in rows:
@@ -100,8 +106,16 @@ async def list_traditions(
     response_model=SuccessResponse[list[str]],
     summary="List distinct era values",
 )
-async def list_eras(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Tradition.era).distinct().order_by(Tradition.era))
+async def list_eras(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Tradition.era)
+        .where(Tradition.user_id == current_user.id)
+        .distinct()
+        .order_by(Tradition.era)
+    )
     eras = [row[0] for row in result.all()]
     return SuccessResponse(data=eras)
 
@@ -112,11 +126,16 @@ async def list_eras(db: AsyncSession = Depends(get_db)):
     status_code=201,
     summary="Create a new wisdom tradition",
 )
-async def create_tradition(body: CreateTradition, db: AsyncSession = Depends(get_db)):
+async def create_tradition(
+    body: CreateTradition,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     slug = body.slug or _slugify(body.name)
-    if await db.get(Tradition, slug):
+    if await db.get(Tradition, (current_user.id, slug)):
         raise HTTPException(status_code=409, detail=f"Tradition '{slug}' already exists")
     tradition = Tradition(
+        user_id=current_user.id,
         slug=slug,
         name=body.name,
         origin=body.origin,
@@ -149,10 +168,13 @@ async def create_tradition(body: CreateTradition, db: AsyncSession = Depends(get
 )
 async def update_preferences(
     body: PreferencesUpdate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     selected_set = set(body.selected)
-    rows = (await db.execute(select(Tradition))).scalars().all()
+    rows = (
+        await db.execute(select(Tradition).where(Tradition.user_id == current_user.id))
+    ).scalars().all()
     for t in rows:
         t.user_selected = t.slug in selected_set
     await db.commit()
@@ -162,13 +184,17 @@ async def update_preferences(
     "/traditions/{slug}",
     response_model=SuccessResponse[TraditionOut],
     summary="Get a wisdom tradition",
-    description="Fetches a single tradition by slug, including live passage/source counts. Returns 404 if the slug doesn't exist.",
+    description="Fetches a single tradition owned by the current user, including live passage/source counts. Returns 404 if the slug doesn't exist for this user.",
 )
-async def get_tradition(slug: str, db: AsyncSession = Depends(get_db)):
-    row = await db.get(Tradition, slug)
+async def get_tradition(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = await db.get(Tradition, (current_user.id, slug))
     if row is None:
         raise HTTPException(status_code=404, detail="Tradition not found")
-    counts = await _passage_counts(db)
+    counts = await _passage_counts(db, current_user.id)
     c = counts.get(row.slug, {"passages": 0, "sources": 0})
     return SuccessResponse(
         data=TraditionOut(
@@ -188,10 +214,15 @@ async def get_tradition(slug: str, db: AsyncSession = Depends(get_db)):
     "/traditions/{slug}",
     response_model=SuccessResponse[TraditionOut],
     summary="Update a wisdom tradition",
-    description="Partially updates a tradition's name, origin, era, or description — only the provided fields change. The slug is immutable. Returns 404 if the slug doesn't exist.",
+    description="Partially updates a tradition owned by the current user — only the provided fields change. The slug is immutable. Returns 404 if the slug doesn't exist for this user.",
 )
-async def update_tradition(slug: str, body: TraditionUpdate, db: AsyncSession = Depends(get_db)):
-    row = await db.get(Tradition, slug)
+async def update_tradition(
+    slug: str,
+    body: TraditionUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = await db.get(Tradition, (current_user.id, slug))
     if row is None:
         raise HTTPException(status_code=404, detail="Tradition not found")
 
@@ -206,7 +237,7 @@ async def update_tradition(slug: str, body: TraditionUpdate, db: AsyncSession = 
     await db.commit()
     await db.refresh(row)
 
-    counts = await _passage_counts(db)
+    counts = await _passage_counts(db, current_user.id)
     c = counts.get(row.slug, {"passages": 0, "sources": 0})
     return SuccessResponse(
         data=TraditionOut(
@@ -226,10 +257,14 @@ async def update_tradition(slug: str, body: TraditionUpdate, db: AsyncSession = 
     "/traditions/{slug}",
     status_code=204,
     summary="Delete a wisdom tradition",
-    description="Permanently removes a tradition by slug. Returns 404 if the slug doesn't exist, otherwise 204 No Content.",
+    description="Permanently removes a tradition owned by the current user. Returns 404 if the slug doesn't exist for this user, otherwise 204 No Content.",
 )
-async def delete_tradition(slug: str, db: AsyncSession = Depends(get_db)):
-    row = await db.get(Tradition, slug)
+async def delete_tradition(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    row = await db.get(Tradition, (current_user.id, slug))
     if row is None:
         raise HTTPException(status_code=404, detail="Tradition not found")
     await db.delete(row)
