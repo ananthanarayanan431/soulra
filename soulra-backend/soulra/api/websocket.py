@@ -89,7 +89,10 @@ async def chat_ws(websocket: WebSocket):
             await send(StatusEvent(node="intake").model_dump())
 
             initial_input = make_initial_state(msg.situation)
-            config = {"configurable": {"thread_id": thread_id}, "callbacks": [usage_cb]}
+            config = {
+                "configurable": {"thread_id": thread_id, "user_id": current_user.id},
+                "callbacks": [usage_cb],
+            }
 
             clarify_done = False
             clarify_q = ""
