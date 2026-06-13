@@ -3,17 +3,22 @@ import asyncio
 from typing import cast
 
 from langchain_core.documents import Document
+from langchain_core.runnables import RunnableConfig
 from soulra.graph.state import SoulraState
 from soulra.services.retrieval.retriever import WisdomRetriever
 
 
 def create_retrieve_node(retriever: WisdomRetriever, output_key: str = "retrieved_docs"):
-    async def retrieve(state: SoulraState) -> dict:
+    async def retrieve(state: SoulraState, config: RunnableConfig) -> dict:
         query = state["query"]
         hints = cast("list[str | None]", state["tradition_hints"] or [None])
+        user_id = config.get("configurable", {}).get("user_id")
 
         results = await asyncio.gather(
-            *[retriever.search(query, tradition_filter=hint, k=10) for hint in hints]
+            *[
+                retriever.search(query, tradition_filter=hint, user_id=user_id, k=10)
+                for hint in hints
+            ]
         )
 
         all_docs: list[Document] = []
