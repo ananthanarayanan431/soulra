@@ -33,3 +33,33 @@ async def test_search_raises_retrieval_error_on_failure():
     retriever = WisdomRetriever(vectorstore=bad_vs)
     with pytest.raises(RetrievalError):
         await retriever.search("query")
+
+
+@pytest.mark.asyncio
+async def test_search_filters_by_user_id_and_tradition():
+    from soulra.services.retrieval.retriever import WisdomRetriever
+
+    vs = MagicMock()
+    vs.asimilarity_search = AsyncMock(return_value=[Document(page_content="x", metadata={})])
+    retriever = WisdomRetriever(vs)
+
+    await retriever.search("query", tradition_filter="stoic", user_id="user_123", k=10)
+
+    vs.asimilarity_search.assert_awaited_once_with(
+        "query", k=10, filter={"tradition": "stoic", "user_id": "user_123"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_search_filters_by_user_id_only_when_no_tradition():
+    from soulra.services.retrieval.retriever import WisdomRetriever
+
+    vs = MagicMock()
+    vs.asimilarity_search = AsyncMock(return_value=[])
+    retriever = WisdomRetriever(vs)
+
+    await retriever.search("query", tradition_filter=None, user_id="user_123", k=5)
+
+    vs.asimilarity_search.assert_awaited_once_with(
+        "query", k=5, filter={"user_id": "user_123"}
+    )
