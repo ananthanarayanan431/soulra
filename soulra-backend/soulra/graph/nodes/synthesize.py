@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
+from langchain_core.runnables import RunnableConfig
 from soulra.graph.state import SoulraState
 
 SYNTHESIZE_PROMPT = """You are Soulra, an AI wisdom companion.
@@ -56,7 +57,7 @@ def _format_passage(doc: Document) -> str:
 def create_synthesize_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(SynthesizeOutput)
 
-    async def synthesize(state: SoulraState) -> dict:
+    async def synthesize(state: SoulraState, config: RunnableConfig) -> dict:
         docs = state["reranked_docs"]
         if docs:
             passages = "\n\n".join(_format_passage(d) for d in docs)
@@ -68,7 +69,7 @@ def create_synthesize_node(llm: ChatOpenAI):
             clarify_answer=state.get("clarify_answer") or "not provided",
             passages=passages,
         )
-        result: SynthesizeOutput = await structured_llm.ainvoke(prompt)  # type: ignore[assignment]
+        result: SynthesizeOutput = await structured_llm.ainvoke(prompt, config=config)  # type: ignore[assignment]
         return {
             "tradition_cards": [c.model_dump() for c in result.tradition_cards],
             "action_steps": [s.model_dump() for s in result.action_steps],

@@ -3,6 +3,7 @@ from typing import cast
 
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
 from soulra.graph.state import SoulraState
 
 CLARIFY_PROMPT = """You are Soulra, a wisdom companion. Before drawing on ancient traditions,
@@ -29,9 +30,9 @@ class ClarifyOutput(BaseModel):
 def create_clarify_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(ClarifyOutput)
 
-    async def clarify(state: SoulraState) -> dict:
+    async def clarify(state: SoulraState, config: RunnableConfig) -> dict:
         prompt = CLARIFY_PROMPT.format(situation=state["situation"])
-        result = cast(ClarifyOutput, await structured_llm.ainvoke(prompt))
+        result = cast(ClarifyOutput, await structured_llm.ainvoke(prompt, config=config))
         fallbacks = [f"Clarify option {i + 1}" for i in range(4)]
         chips = result.chips[:4]
         chips = chips + fallbacks[len(chips) :]

@@ -82,7 +82,7 @@ async def test_grade_node_returns_relevant_when_majority_score_yes():
         Document(page_content="Stoic wisdom.", metadata={}),
         Document(page_content="More Stoic wisdom.", metadata={}),
     ]
-    result = await grade(_make_state(reranked_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs), {})
     assert result["grade_result"] == "relevant"
 
 
@@ -97,7 +97,7 @@ async def test_grade_node_returns_not_relevant_when_majority_score_no():
     grade = create_grade_node(mock_llm)
 
     docs = [Document(page_content="Recipes for pasta.", metadata={})]
-    result = await grade(_make_state(reranked_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs), {})
     assert result["grade_result"] == "not_relevant"
 
 
@@ -112,7 +112,7 @@ async def test_grade_node_returns_relevant_for_single_doc_with_yes_score():
     grade = create_grade_node(mock_llm)
 
     docs = [Document(page_content="Stoic wisdom about equanimity.", metadata={})]
-    result = await grade(_make_state(reranked_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs), {})
     assert result["grade_result"] == "relevant"
 
 
@@ -122,7 +122,7 @@ async def test_grade_node_returns_not_relevant_for_empty_docs():
 
     mock_llm = MagicMock()
     grade = create_grade_node(mock_llm)
-    result = await grade(_make_state(reranked_docs=[]))
+    result = await grade(_make_state(reranked_docs=[]), {})
     assert result["grade_result"] == "not_relevant"
 
 
@@ -200,7 +200,7 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     call_log = []
 
     class MockStructuredLLM:
-        async def ainvoke(self, prompt):
+        async def ainvoke(self, prompt, config=None):
             call_log.append(prompt)
 
             class R:
@@ -229,7 +229,7 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
         "messages": [],
         "rewrite_count": 0,
     }
-    result = await grade(state)
+    result = await grade(state, {})
     assert len(call_log) == 4, "Expected 4 ainvoke calls for 4 docs"
     assert result["grade_result"] in ("relevant", "not_relevant")
 
@@ -248,7 +248,7 @@ async def test_grade_node_reads_from_reranked_docs_not_retrieved():
     reranked = [Document(page_content="Reranked stoic wisdom.", metadata={})]
     retrieved = [Document(page_content=f"retrieved-{i}", metadata={}) for i in range(5)]
     state = _make_state(reranked_docs=reranked, retrieved_docs=retrieved)
-    result = await grade(state)
+    result = await grade(state, {})
     # Grade is called once (for the 1 doc in reranked_docs)
     assert mock_llm.ainvoke.call_count == 1
     assert result["grade_result"] == "relevant"
@@ -270,7 +270,7 @@ async def test_grade_node_emits_selection_recall_log(caplog):
 
     retrieved = [Document(page_content=f"r{i}", metadata={"id": f"id{i}"}) for i in range(10)]
     reranked = retrieved[:3]
-    result = await grade(_make_state(retrieved_docs=retrieved, reranked_docs=reranked))
+    result = await grade(_make_state(retrieved_docs=retrieved, reranked_docs=reranked), {})
     # structlog logs to stdout, not caplog — just verify no exception is raised
     # and that grading completed on the non-empty path
     assert result["grade_result"] == "relevant"

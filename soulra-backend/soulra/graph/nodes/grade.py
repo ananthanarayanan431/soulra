@@ -3,6 +3,7 @@ from math import ceil
 
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
 
 from soulra.core.logging import logger
 from soulra.graph.state import SoulraState
@@ -26,14 +27,14 @@ GRADE_SAMPLE_SIZE = 4
 def create_grade_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(GradeOutput)
 
-    async def _safe_grade(prompt: str) -> GradeOutput:
+    async def _safe_grade(prompt: str, config: RunnableConfig) -> GradeOutput:
         try:
-            return await structured_llm.ainvoke(prompt)  # type: ignore[return-value]
+            return await structured_llm.ainvoke(prompt, config=config)  # type: ignore[return-value]
         except Exception as exc:
             logger.error("grade_llm_failed", error=str(exc))
             return GradeOutput(score="no")
 
-    async def grade(state: SoulraState) -> dict:
+    async def grade(state: SoulraState, config: RunnableConfig) -> dict:
         docs = state["reranked_docs"]
         if not docs:
             logger.warning("grade_skipped_empty_reranked_docs")
@@ -48,7 +49,7 @@ def create_grade_node(llm: ChatOpenAI):
             )
             for doc in sample
         ]
-        results: list[GradeOutput] = await asyncio.gather(*[_safe_grade(p) for p in prompts])
+        results: list[GradeOutput] = await asyncio.gather(*[_safe_grade(p, config) for p in prompts])
         relevant_count = sum(1 for r in results if r.score == "yes")
         sampled_count = len(sample)
         threshold = max(1, ceil(sampled_count / 2))

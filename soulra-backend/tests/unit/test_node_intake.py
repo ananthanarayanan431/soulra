@@ -1,7 +1,7 @@
 # tests/unit/test_node_intake.py
 import asyncio
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def make_intake_llm_response(tradition_hints, query):
@@ -43,7 +43,11 @@ async def test_intake_extracts_tradition_hints():
     mock_llm = make_intake_llm_response(["stoic", "buddhist"], "refusing gracefully")
     intake = create_intake_node(mock_llm)
 
-    result = await intake(_make_empty_state())
+    with patch(
+        "soulra.graph.nodes.intake.get_tradition_options",
+        AsyncMock(return_value=["stoic", "buddhist", "vedanta"]),
+    ):
+        result = await intake(_make_empty_state(), {})
     assert result["tradition_hints"] == ["stoic", "buddhist"]
     assert result["query"] == "refusing gracefully"
 
@@ -54,7 +58,11 @@ async def test_intake_initialises_rewrite_count():
 
     mock_llm = make_intake_llm_response([], "query")
     intake = create_intake_node(mock_llm)
-    result = await intake(_make_empty_state())
+    with patch(
+        "soulra.graph.nodes.intake.get_tradition_options",
+        AsyncMock(return_value=["stoic", "buddhist", "vedanta"]),
+    ):
+        result = await intake(_make_empty_state(), {})
     assert result["rewrite_count"] == 0
 
 

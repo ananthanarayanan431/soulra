@@ -71,7 +71,7 @@ async def test_synthesize_produces_tradition_cards_and_action_steps():
         ],
     )
     synthesize = create_synthesize_node(_mock_llm_with_output(mock_output))
-    result = await synthesize(_make_state())
+    result = await synthesize(_make_state(), {})
     assert len(result["tradition_cards"]) == 1
     assert result["tradition_cards"][0]["tradition"] == "Stoic"
     assert len(result["action_steps"]) == 3
@@ -104,7 +104,7 @@ async def test_synthesize_tradition_card_has_source_passage():
         ],
     )
     synthesize = create_synthesize_node(_mock_llm_with_output(mock_output))
-    result = await synthesize(_make_state())
+    result = await synthesize(_make_state(), {})
     card = result["tradition_cards"][0]
     assert "source_passage" in card, (
         "TraditionCard must include source_passage for grounding verification"
@@ -127,7 +127,7 @@ async def test_synthesize_reads_from_reranked_docs():
         def with_structured_output(self, schema):
             return self
 
-        async def ainvoke(self, prompt):
+        async def ainvoke(self, prompt, config=None):
             captured_prompt.append(prompt)
             return SynthesizeOutput(
                 tradition_cards=[
@@ -154,7 +154,7 @@ async def test_synthesize_reads_from_reranked_docs():
             "ingested_at": "2026-06-06T00:00:00+00:00",
         },
     )
-    await synthesize(_make_state(reranked_docs=[reranked_doc]))
+    await synthesize(_make_state(reranked_docs=[reranked_doc]), {})
     assert "RERANKED wisdom." in captured_prompt[0], "synthesize must read from reranked_docs"
 
 
@@ -173,7 +173,7 @@ async def test_synthesize_context_label_includes_metadata_fields():
         def with_structured_output(self, schema):
             return self
 
-        async def ainvoke(self, prompt):
+        async def ainvoke(self, prompt, config=None):
             captured_prompt.append(prompt)
             return SynthesizeOutput(
                 tradition_cards=[
@@ -200,7 +200,7 @@ async def test_synthesize_context_label_includes_metadata_fields():
             "ingested_at": "2026-06-06T00:00:00+00:00",
         },
     )
-    await synthesize(_make_state(reranked_docs=[doc]))
+    await synthesize(_make_state(reranked_docs=[doc]), {})
     prompt = captured_prompt[0]
     assert "Marcus Aurelius" in prompt
     assert "Meditations" in prompt
@@ -223,7 +223,7 @@ async def test_synthesize_prompt_contains_grounding_instruction():
         def with_structured_output(self, schema):
             return self
 
-        async def ainvoke(self, prompt):
+        async def ainvoke(self, prompt, config=None):
             captured_prompt.append(prompt)
             return SynthesizeOutput(
                 tradition_cards=[
@@ -240,7 +240,7 @@ async def test_synthesize_prompt_contains_grounding_instruction():
             )
 
     synthesize = create_synthesize_node(CaptureLLM())
-    await synthesize(_make_state())
+    await synthesize(_make_state(), {})
     prompt = captured_prompt[0]
     assert "ONLY" in prompt, "Prompt must contain strong grounding instruction"
     assert "verbatim" in prompt.lower(), "Prompt must require verbatim quotes"
@@ -261,7 +261,7 @@ async def test_synthesize_caps_content_at_500_chars():
         def with_structured_output(self, schema):
             return self
 
-        async def ainvoke(self, prompt):
+        async def ainvoke(self, prompt, config=None):
             captured_prompt.append(prompt)
             return SynthesizeOutput(
                 tradition_cards=[
@@ -288,7 +288,7 @@ async def test_synthesize_caps_content_at_500_chars():
             "ingested_at": "2026-06-06T00:00:00+00:00",
         },
     )
-    await synthesize(_make_state(reranked_docs=[doc]))
+    await synthesize(_make_state(reranked_docs=[doc]), {})
     assert "X" * 501 not in captured_prompt[0]
     assert "X" * 499 in captured_prompt[0]
 
@@ -308,7 +308,7 @@ async def test_synthesize_empty_reranked_docs_sends_fallback_marker():
         def with_structured_output(self, schema):
             return self
 
-        async def ainvoke(self, prompt):
+        async def ainvoke(self, prompt, config=None):
             captured_prompt.append(prompt)
             return SynthesizeOutput(
                 tradition_cards=[
@@ -325,7 +325,7 @@ async def test_synthesize_empty_reranked_docs_sends_fallback_marker():
             )
 
     synthesize = create_synthesize_node(CaptureLLM())
-    result = await synthesize(_make_state(reranked_docs=[]))
+    result = await synthesize(_make_state(reranked_docs=[]), {})
     assert "No source passages available" in captured_prompt[0], (
         "Empty reranked_docs must send fallback marker to LLM"
     )

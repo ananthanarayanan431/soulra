@@ -2,10 +2,14 @@
 from typing import cast
 
 from pydantic import BaseModel
+from sqlalchemy import select
 from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
+from soulra.database import AsyncSessionLocal
 from soulra.graph.state import SoulraState
+from soulra.models.tradition import Tradition
 
-TRADITION_OPTIONS = [
+DEFAULT_TRADITION_OPTIONS = [
     "stoic",
     "vedanta",
     "buddhist",
@@ -15,6 +19,15 @@ TRADITION_OPTIONS = [
     "christian_mystic",
     "zen",
 ]
+
+
+async def get_tradition_options() -> list[str]:
+    """Tradition slugs the intake LLM can route to, drawn from what's ingested."""
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Tradition.slug))
+        slugs = [row[0] for row in result.all()]
+    return slugs or DEFAULT_TRADITION_OPTIONS
+
 
 INTAKE_PROMPT = """You are helping route a user's situation to the right wisdom traditions.
 Given this situation: {situation}
@@ -53,12 +66,13 @@ def _sanitize_hints(hints: list) -> list[str]:
 def create_intake_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(IntakeOutput)
 
-    async def intake(state: SoulraState) -> dict:
+    async def intake(state: SoulraState, config: RunnableConfig) -> dict:
+        options = await get_tradition_options()
         prompt = INTAKE_PROMPT.format(
             situation=state["situation"],
-            options=TRADITION_OPTIONS,
+            options=options,
         )
-        result = cast(IntakeOutput, await structured_llm.ainvoke(prompt))
+        result = cast(IntakeOutput, await structured_llm.ainvoke(prompt, config=config))
         return {
             "tradition_hints": _sanitize_hints(result.tradition_hints),
             "query": result.query,
