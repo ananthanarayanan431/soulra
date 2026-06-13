@@ -21,10 +21,12 @@ DEFAULT_TRADITION_OPTIONS = [
 ]
 
 
-async def get_tradition_options() -> list[str]:
-    """Tradition slugs the intake LLM can route to, drawn from what's ingested."""
+async def get_tradition_options(user_id: str | None) -> list[str]:
+    """Tradition slugs the intake LLM can route to for this user."""
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(Tradition.slug))
+        result = await session.execute(
+            select(Tradition.slug).where(Tradition.user_id == user_id)
+        )
         slugs = [row[0] for row in result.all()]
     return slugs or DEFAULT_TRADITION_OPTIONS
 
@@ -67,7 +69,8 @@ def create_intake_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(IntakeOutput)
 
     async def intake(state: SoulraState, config: RunnableConfig) -> dict:
-        options = await get_tradition_options()
+        user_id = config.get("configurable", {}).get("user_id")
+        options = await get_tradition_options(user_id)
         prompt = INTAKE_PROMPT.format(
             situation=state["situation"],
             options=options,
