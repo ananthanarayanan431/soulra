@@ -3,9 +3,10 @@ import { Sidebar } from "@/components/layout";
 import {
   listConversations,
   getActivePractice,
+  getMe,
   formatRelativeDate,
 } from "@/lib/api";
-import type { Conversation, PracticeDay } from "@/lib/api";
+import type { Conversation, PracticeDay, MeData } from "@/lib/api";
 
 function TodayPractice({ today }: { today: PracticeDay }) {
   return (
@@ -60,6 +61,37 @@ function EmptyPractice() {
   );
 }
 
+function AccountSummary({ me }: { me: MeData }) {
+  const tokensLeft = Math.max(0, me.token_limit - me.tokens_used);
+  const pct = me.token_limit > 0
+    ? Math.min(100, (me.tokens_used / me.token_limit) * 100)
+    : 0;
+
+  return (
+    <div className="border border-line rounded-xl px-5 py-4 bg-paper-alt flex flex-col gap-2 w-[260px] flex-shrink-0">
+      <div className="font-mono text-[9px] text-muted uppercase tracking-widest">
+        Token usage
+      </div>
+      <div className="h-1.5 rounded-full bg-paper overflow-hidden">
+        <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="font-mono text-[10px] text-muted">
+        {tokensLeft.toLocaleString()} tokens left
+      </div>
+
+      <div className="border-t border-line-soft my-1" />
+      <div className="font-mono text-[10px] text-muted">
+        First login {formatRelativeDate(me.created_at)}
+      </div>
+      {me.last_login_at && (
+        <div className="font-mono text-[10px] text-muted">
+          Last login {formatRelativeDate(me.last_login_at)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecentConversations({ conversations }: { conversations: Conversation[] }) {
   if (conversations.length === 0) return null;
 
@@ -92,9 +124,10 @@ function RecentConversations({ conversations }: { conversations: Conversation[] 
 }
 
 export async function HomeScreen() {
-  const [conversations, arc] = await Promise.all([
+  const [conversations, arc, me] = await Promise.all([
     listConversations(3),
     getActivePractice(),
+    getMe(),
   ]);
 
   const today = arc
@@ -112,8 +145,11 @@ export async function HomeScreen() {
       <Sidebar />
 
       <div className="flex-1 overflow-auto px-10 py-10">
-        <div className="font-mono text-[10px] text-muted uppercase tracking-widest mb-5">
-          {dateLabel}
+        <div className="flex items-start justify-between gap-8 mb-5">
+          <div className="font-mono text-[10px] text-muted uppercase tracking-widest pt-1">
+            {dateLabel}
+          </div>
+          {me && <AccountSummary me={me} />}
         </div>
 
         <div className="font-serif text-[36px] leading-[1.25] mb-8 max-w-[560px]">

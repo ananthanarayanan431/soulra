@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wordmark } from "@/components/ui";
+import { Logo } from "@/components/ui";
+import { UserMenu } from "./UserMenu";
 import { listConversations, formatRelativeDate, getMe } from "@/lib/api";
 import type { Conversation, MeData } from "@/lib/api";
 
@@ -32,7 +33,7 @@ export function Sidebar() {
     <aside className="w-[220px] border-r border-line bg-paper-alt flex flex-col flex-shrink-0">
       <div className="px-4 py-5 pb-[18px]">
         <Link href="/">
-          <Wordmark size={18} />
+          <Logo size={18} />
         </Link>
       </div>
       <nav className="flex flex-col gap-1 px-4">
@@ -53,18 +54,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      {me?.role === "admin" && (
-        <div className="px-4 mt-1">
-          <Link
-            href="/admin/users"
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-ink border border-transparent hover:bg-paper/50"
-          >
-            <span className="font-mono text-muted w-3 text-[11px]">▲</span>
-            <span>Admin</span>
-          </Link>
-        </div>
-      )}
 
       {conversations.length > 0 && (
         <div className="mt-4 px-4">
@@ -97,11 +86,7 @@ export function Sidebar() {
         </div>
       )}
 
-      <div className="mt-auto px-4 py-3 border-t border-line">
-        <p className="font-mono text-[10px] text-muted leading-relaxed">
-          Free · 3 of 5<br />queries this week
-        </p>
-      </div>
+      <UserMenu me={me} />
     </aside>
   );
 }

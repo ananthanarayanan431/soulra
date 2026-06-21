@@ -35,7 +35,7 @@ async def test_rewrite_node_produces_new_query():
         return_value=RewriteOutput(rewritten_query="how to set boundaries at work")
     )
     rewrite = create_rewrite_node(mock_llm)
-    result = await rewrite(_make_state())
+    result = await rewrite(_make_state(), {})
     assert result["query"] == "how to set boundaries at work"
     assert result["rewrite_count"] == 1
 
@@ -48,7 +48,7 @@ async def test_rewrite_increments_rewrite_count():
     mock_llm.with_structured_output = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=RewriteOutput(rewritten_query="new query"))
     rewrite = create_rewrite_node(mock_llm)
-    result = await rewrite(_make_state(rewrite_count=1))
+    result = await rewrite(_make_state(rewrite_count=1), {})
     assert result["rewrite_count"] == 2
 
 
@@ -65,7 +65,7 @@ async def test_clarify_node_produces_question_and_chips():
         )
     )
     clarify = create_clarify_node(mock_llm)
-    result = await clarify(_make_state())
+    result = await clarify(_make_state(), {})
     assert len(result["clarify_question"]) > 0
     assert len(result["clarify_chips"]) == 4
 
@@ -83,7 +83,7 @@ async def test_clarify_node_truncates_to_4_chips():
         )
     )
     clarify = create_clarify_node(mock_llm)
-    result = await clarify(_make_state())
+    result = await clarify(_make_state(), {})
     assert len(result["clarify_chips"]) == 4
 
 

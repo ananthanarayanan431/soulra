@@ -3,6 +3,7 @@ from typing import cast
 
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
 from soulra.graph.state import SoulraState
 
 REWRITE_PROMPT = """The original search query returned poor results.
@@ -21,12 +22,12 @@ class RewriteOutput(BaseModel):
 def create_rewrite_node(llm: ChatOpenAI):
     structured_llm = llm.with_structured_output(RewriteOutput)
 
-    async def rewrite(state: SoulraState) -> dict:
+    async def rewrite(state: SoulraState, config: RunnableConfig) -> dict:
         prompt = REWRITE_PROMPT.format(
             situation=state["situation"],
             query=state["query"],
         )
-        result = cast(RewriteOutput, await structured_llm.ainvoke(prompt))
+        result = cast(RewriteOutput, await structured_llm.ainvoke(prompt, config=config))
         return {
             "query": result.rewritten_query,
             "rewrite_count": state["rewrite_count"] + 1,

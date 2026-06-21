@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Wordmark, Button, Squiggle } from "@/components/ui";
+import { useUser, useClerk } from "@clerk/nextjs";
+import { Logo, Button, Squiggle } from "@/components/ui";
 
 const PRINCIPLES = [
   {
@@ -106,6 +107,61 @@ function FaqItem({
   );
 }
 
+function AuthCta({
+  signedInLabel,
+  signedOutLabel,
+}: {
+  signedInLabel: string;
+  signedOutLabel: string;
+}) {
+  const { isSignedIn } = useUser();
+
+  return (
+    <Link href={isSignedIn ? "/home" : "/sign-in"}>
+      <Button primary>{isSignedIn ? signedInLabel : signedOutLabel}</Button>
+    </Link>
+  );
+}
+
+function AuthControls() {
+  const { isSignedIn } = useUser();
+  const { signOut } = useClerk();
+
+  if (isSignedIn) {
+    return (
+      <button
+        onClick={() => signOut({ redirectUrl: "/" })}
+        className="font-mono text-[12px] text-muted hover:text-ink transition-colors"
+      >
+        Log out
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <Link href="/sign-in">
+        <Button>Log in</Button>
+      </Link>
+      <Link href="/sign-up">
+        <Button>Sign up →</Button>
+      </Link>
+    </div>
+  );
+}
+
+function HeaderAuth() {
+  return (
+    <div className="flex items-center gap-5">
+      <AuthControls />
+      <div className="w-px h-6 bg-line" />
+      <Link href="/home">
+        <Button primary>Enter Soulra →</Button>
+      </Link>
+    </div>
+  );
+}
+
 export function LandingScreen() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
@@ -113,10 +169,8 @@ export function LandingScreen() {
     <div className="min-h-screen bg-paper text-ink">
       {/* top nav */}
       <header className="flex items-center justify-between px-12 py-7 border-b border-line">
-        <Wordmark size={22} />
-        <Link href="/home">
-          <Button primary>Enter Soulra →</Button>
-        </Link>
+        <Logo size={22} />
+        <HeaderAuth />
       </header>
 
       {/* hero */}
@@ -135,9 +189,7 @@ export function LandingScreen() {
           an answer, but to show you how each tradition sees your knot.
         </p>
         <div className="flex gap-3 mt-9">
-          <Link href="/home">
-            <Button primary>Begin a conversation →</Button>
-          </Link>
+          <AuthCta signedInLabel="Begin a conversation →" signedOutLabel="Begin a conversation →" />
           <a href="#how-it-works">
             <Button>See how it works</Button>
           </a>
@@ -230,15 +282,13 @@ export function LandingScreen() {
         <div className="font-serif text-[36px] leading-snug italic max-w-[600px] mb-8">
           &ldquo;What is asking for your attention today?&rdquo;
         </div>
-        <Link href="/home">
-          <Button primary>Start a conversation →</Button>
-        </Link>
+        <AuthCta signedInLabel="Start a conversation →" signedOutLabel="Start a conversation →" />
       </section>
 
       {/* footer */}
       <footer className="px-12 py-9 border-t border-line flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-6">
-          <Wordmark size={17} />
+          <Logo size={17} />
           <span className="font-mono text-[12px] text-muted">
             an AI wisdom companion · built on the world&rsquo;s contemplative traditions
           </span>

@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from soulra.core.auth import get_current_user
 from soulra.core.logging import logger
+from soulra.models.user import User
 from soulra.schemas.passage import PassageOut
 from soulra.schemas.responses import SuccessResponse
 
@@ -24,11 +26,13 @@ async def list_passages(
     offset: int = Query(
         default=0, ge=0
     ),  # reserved: applied when similarity search is replaced by SQL listing
+    current_user: User = Depends(get_current_user),
 ):
     vectorstore = _get_vs()
-    filter_kwargs: dict = {"k": limit}
+    filter_dict: dict = {"user_id": current_user.id}
     if tradition:
-        filter_kwargs["filter"] = {"tradition": tradition}
+        filter_dict["tradition"] = tradition
+    filter_kwargs: dict = {"k": limit, "filter": filter_dict}
     try:
         docs = await vectorstore.asimilarity_search("wisdom", **filter_kwargs)
     except Exception:
@@ -60,8 +64,18 @@ async def list_passages(
     summary="Delete a passage",
     description="Permanently removes a passage from the vector store by its ID. This action is irreversible — the passage will no longer appear in search results or be used in RAG responses.",
 )
-async def delete_passage(passage_id: str):
+async def delete_passage(
+    passage_id: str,
+    current_user: User = Depends(get_current_user),
+):
     vectorstore = _get_vs()
+    try:
+        docs = await vectorstore.aget_by_ids([passage_id])
+    except Exception:
+        logger.exception("passage_lookup_failed", passage_id=passage_id)
+        raise HTTPException(status_code=500, detail="Internal server error")
+    if not docs or docs[0].metadata.get("user_id") != current_user.id:
+        raise HTTPException(status_code=404, detail="Passage not found")
     try:
         await vectorstore.adelete(ids=[passage_id])
     except Exception:
@@ -75,6 +89,6 @@ async def delete_passage(passage_id: str):
     summary="List vector store collections",
     description="Returns the list of active vector store collections. Currently returns a single collection corresponding to the configured PGVector collection name.",
 )
-async def list_collections():
+async def list_collections(current_user: User = Depends(get_current_user)):
     vectorstore = _get_vs()
     return SuccessResponse(data=[{"name": vectorstore.collection_name}])

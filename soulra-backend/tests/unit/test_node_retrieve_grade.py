@@ -34,10 +34,25 @@ async def test_retrieve_node_calls_retriever_for_each_hint(mock_vectorstore):
     retriever = WisdomRetriever(mock_vectorstore)
     retrieve = create_retrieve_node(retriever)
 
-    result = await retrieve(_make_state())
+    result = await retrieve(_make_state(), {})
     assert len(result["retrieved_docs"]) > 0
     # called once per tradition_hint ("stoic", "buddhist")
     assert mock_vectorstore.asimilarity_search.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_retrieve_node_passes_user_id_from_config(mock_vectorstore):
+    from soulra.graph.nodes.retrieve import create_retrieve_node
+    from soulra.services.retrieval.retriever import WisdomRetriever
+
+    retriever = WisdomRetriever(mock_vectorstore)
+    retrieve = create_retrieve_node(retriever)
+
+    config = {"configurable": {"user_id": "user_123"}}
+    await retrieve(_make_state(), config)
+
+    for call in mock_vectorstore.asimilarity_search.call_args_list:
+        assert call.kwargs["filter"]["user_id"] == "user_123"
 
 
 @pytest.mark.asyncio
@@ -51,7 +66,7 @@ async def test_retrieve_node_deduplicates_documents(mock_vectorstore):
     mock_vectorstore.asimilarity_search = AsyncMock(return_value=[dup_doc])
     retriever = WisdomRetriever(mock_vectorstore)
     retrieve = create_retrieve_node(retriever)
-    result = await retrieve(_make_state())
+    result = await retrieve(_make_state(), {})
     assert len(result["retrieved_docs"]) == 1  # deduplicated
 
 
@@ -63,7 +78,7 @@ async def test_retrieve_refined_writes_to_refined_docs_key(mock_vectorstore):
 
     retriever = WisdomRetriever(mock_vectorstore)
     retrieve_refined = create_retrieve_node(retriever, output_key="refined_docs")
-    result = await retrieve_refined(_make_state())
+    result = await retrieve_refined(_make_state(), {})
     assert "refined_docs" in result
     assert "retrieved_docs" not in result
 
@@ -82,7 +97,7 @@ async def test_grade_node_returns_relevant_when_majority_score_yes():
         Document(page_content="Stoic wisdom.", metadata={}),
         Document(page_content="More Stoic wisdom.", metadata={}),
     ]
-    result = await grade(_make_state(reranked_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs), {})
     assert result["grade_result"] == "relevant"
 
 
@@ -97,7 +112,7 @@ async def test_grade_node_returns_not_relevant_when_majority_score_no():
     grade = create_grade_node(mock_llm)
 
     docs = [Document(page_content="Recipes for pasta.", metadata={})]
-    result = await grade(_make_state(reranked_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs), {})
     assert result["grade_result"] == "not_relevant"
 
 
@@ -112,7 +127,7 @@ async def test_grade_node_returns_relevant_for_single_doc_with_yes_score():
     grade = create_grade_node(mock_llm)
 
     docs = [Document(page_content="Stoic wisdom about equanimity.", metadata={})]
-    result = await grade(_make_state(reranked_docs=docs))
+    result = await grade(_make_state(reranked_docs=docs), {})
     assert result["grade_result"] == "relevant"
 
 
@@ -122,7 +137,7 @@ async def test_grade_node_returns_not_relevant_for_empty_docs():
 
     mock_llm = MagicMock()
     grade = create_grade_node(mock_llm)
-    result = await grade(_make_state(reranked_docs=[]))
+    result = await grade(_make_state(reranked_docs=[]), {})
     assert result["grade_result"] == "not_relevant"
 
 
@@ -147,7 +162,7 @@ async def test_retrieve_node_searches_traditions_concurrently():
 
     call_order = []
 
-    async def slow_search(query, tradition_filter=None, k=5):
+    async def slow_search(query, tradition_filter=None, k=5, user_id=None):
         call_order.append(("start", tradition_filter))
         await asyncio.sleep(0.01)  # small delay to make ordering observable
         call_order.append(("end", tradition_filter))
@@ -175,7 +190,7 @@ async def test_retrieve_node_searches_traditions_concurrently():
         "rewrite_count": 0,
     }
 
-    result = await retrieve(state)
+    result = await retrieve(state, {})
 
     # All 3 docs should be returned
     assert len(result["retrieved_docs"]) == 3
@@ -200,7 +215,7 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
     call_log = []
 
     class MockStructuredLLM:
-        async def ainvoke(self, prompt):
+        async def ainvoke(self, prompt, config=None):
             call_log.append(prompt)
 
             class R:
@@ -229,7 +244,7 @@ async def test_grade_node_calls_ainvoke_concurrently(mock_vectorstore):
         "messages": [],
         "rewrite_count": 0,
     }
-    result = await grade(state)
+    result = await grade(state, {})
     assert len(call_log) == 4, "Expected 4 ainvoke calls for 4 docs"
     assert result["grade_result"] in ("relevant", "not_relevant")
 
@@ -248,7 +263,7 @@ async def test_grade_node_reads_from_reranked_docs_not_retrieved():
     reranked = [Document(page_content="Reranked stoic wisdom.", metadata={})]
     retrieved = [Document(page_content=f"retrieved-{i}", metadata={}) for i in range(5)]
     state = _make_state(reranked_docs=reranked, retrieved_docs=retrieved)
-    result = await grade(state)
+    result = await grade(state, {})
     # Grade is called once (for the 1 doc in reranked_docs)
     assert mock_llm.ainvoke.call_count == 1
     assert result["grade_result"] == "relevant"
@@ -270,7 +285,7 @@ async def test_grade_node_emits_selection_recall_log(caplog):
 
     retrieved = [Document(page_content=f"r{i}", metadata={"id": f"id{i}"}) for i in range(10)]
     reranked = retrieved[:3]
-    result = await grade(_make_state(retrieved_docs=retrieved, reranked_docs=reranked))
+    result = await grade(_make_state(retrieved_docs=retrieved, reranked_docs=reranked), {})
     # structlog logs to stdout, not caplog — just verify no exception is raised
     # and that grading completed on the non-empty path
     assert result["grade_result"] == "relevant"
@@ -283,7 +298,7 @@ async def test_retrieve_node_requests_k10_per_tradition(mock_vectorstore):
 
     retriever = WisdomRetriever(mock_vectorstore)
     retrieve = create_retrieve_node(retriever)
-    await retrieve(_make_state())
+    await retrieve(_make_state(), {})
     # Each call to asimilarity_search must request k=10
     for call in mock_vectorstore.asimilarity_search.call_args_list:
         assert call.kwargs.get("k", call.args[1] if len(call.args) > 1 else None) == 10, (

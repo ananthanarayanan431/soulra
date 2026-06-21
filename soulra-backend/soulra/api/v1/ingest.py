@@ -124,7 +124,13 @@ async def ingest_pdf(
         )
 
     filename = file.filename or "upload.pdf"
-    metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
+    metadata = {
+        "tradition": tradition,
+        "author": author,
+        "source": source,
+        "era": era,
+        "user_id": current_user.id,
+    }
 
     job = await _create_job(db, filename, tradition, current_user.id)
     job_id_str = str(job.id)
@@ -156,7 +162,13 @@ async def ingest_text(
     db: AsyncSession = Depends(get_db),
 ):
     filename = f"text-{hashlib.md5(content[:50].encode()).hexdigest()[:8]}.txt"
-    metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
+    metadata = {
+        "tradition": tradition,
+        "author": author,
+        "source": source,
+        "era": era,
+        "user_id": current_user.id,
+    }
 
     job = await _create_job(db, filename, tradition, current_user.id)
     job_id_str = str(job.id)
@@ -188,7 +200,13 @@ async def ingest_url(
     db: AsyncSession = Depends(get_db),
 ):
     await _check_url_not_ssrf(url)
-    metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
+    metadata = {
+        "tradition": tradition,
+        "author": author,
+        "source": source,
+        "era": era,
+        "user_id": current_user.id,
+    }
 
     job = await _create_job(db, url, tradition, current_user.id)
     job_id_str = str(job.id)
@@ -245,7 +263,13 @@ async def ingest_youtube(
         raise HTTPException(status_code=422, detail=f"Could not fetch transcript: {exc}")
 
     filename = f"youtube-{video_id}.txt"
-    metadata = {"tradition": tradition, "author": author, "source": source, "era": era}
+    metadata = {
+        "tradition": tradition,
+        "author": author,
+        "source": source,
+        "era": era,
+        "user_id": current_user.id,
+    }
 
     job = await _create_job(db, filename, tradition, current_user.id)
     job_id_str = str(job.id)

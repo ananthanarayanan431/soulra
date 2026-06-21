@@ -33,12 +33,48 @@ async def test_list_passages_with_tradition_filter(client):
 
 
 @pytest.mark.asyncio
+async def test_list_passages_filters_by_current_user(client):
+    mock_vs = MagicMock()
+    mock_vs.asimilarity_search = AsyncMock(return_value=[])
+    with patch("soulra.api.v1.passages._get_vs", return_value=mock_vs):
+        resp = await client.get("/api/v1/passages")
+    assert resp.status_code == 200
+    _, kwargs = mock_vs.asimilarity_search.call_args
+    assert kwargs["filter"]["user_id"] == "user_test_primary"
+
+
+@pytest.mark.asyncio
 async def test_delete_passage_returns_204(client):
     mock_vs = MagicMock()
+    doc = Document(page_content="x", metadata={"user_id": "user_test_primary"})
+    mock_vs.aget_by_ids = AsyncMock(return_value=[doc])
     mock_vs.adelete = AsyncMock(return_value=None)
     with patch("soulra.api.v1.passages._get_vs", return_value=mock_vs):
         resp = await client.delete("/api/v1/passages/passage-abc")
     assert resp.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_delete_passage_not_owned_by_user_returns_404(client):
+    mock_vs = MagicMock()
+    doc = Document(page_content="x", metadata={"user_id": "user_test_other"})
+    mock_vs.aget_by_ids = AsyncMock(return_value=[doc])
+    mock_vs.adelete = AsyncMock(return_value=None)
+    with patch("soulra.api.v1.passages._get_vs", return_value=mock_vs):
+        resp = await client.delete("/api/v1/passages/passage-abc")
+    assert resp.status_code == 404
+    mock_vs.adelete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_delete_passage_missing_returns_404(client):
+    mock_vs = MagicMock()
+    mock_vs.aget_by_ids = AsyncMock(return_value=[])
+    mock_vs.adelete = AsyncMock(return_value=None)
+    with patch("soulra.api.v1.passages._get_vs", return_value=mock_vs):
+        resp = await client.delete("/api/v1/passages/passage-abc")
+    assert resp.status_code == 404
+    mock_vs.adelete.assert_not_called()
 
 
 @pytest.mark.asyncio
